@@ -1,9 +1,10 @@
 "use client";
+import { Refund } from "./refund";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { money, satang } from "@/lib/money";
 type Member = { name: string; memberId: string; balance: number };
-export function Pos({ userId }: { userId: string }) {
+export function Pos({ userId, name, role }: { userId: string; name: string; role: string }) {
   const [amount, setAmount] = useState(""),
     [confirmed, setConfirmed] = useState(false),
     [token, setToken] = useState(""),
@@ -91,21 +92,24 @@ export function Pos({ userId }: { userId: string }) {
       o.onended = () => c.close();
     } catch {}
   }
+  useEffect(() => {
+    fetch("/api/pos/state", { cache: "no-store" }).then(async r => { const data = await r.json(); if (!r.ok) throw Error(data.error); if (!sessionStorage.getItem(storageKey) && data.shift) { setShift(data.shift.id); setTerminal(data.shift.terminalId); } setHistory(data.history); }).catch(e => setStatus(e.message));
+  }, [storageKey]);
   if (!ready) return <p role="status">กำลังตรวจรายการค้าง…</p>;
   return (
-    <>
-      <div className="row">
+    <div className="workspace pos-workspace">
+      <div className="workspace-heading">
         <div>
-          <span className="badge">Employee POS · Manual amount</span>
-          <h1 style={{ marginTop: 12 }}>รับชำระเงิน</h1>
+          <span className="badge">SMART CANTEEN · STAFF COUNTER</span>
+          <h1>รับชำระอย่างคล่องตัว</h1><p className="muted">สวัสดี {name} · {role === "SUPERVISOR" ? "หัวหน้างาน" : "พนักงาน"} · {shift ? "กำลังเปิดกะ" : "เปิดกะเพื่อเริ่มรับชำระ"}</p>
         </div>
         <form action="/api/auth/signout">
           <Button variant="outline">ออกจากระบบ</Button>
         </form>
       </div>
-      <div className="grid">
-        <section className="card">
-          <label htmlFor="terminal">Terminal ID</label>
+      <div className="pos-grid">
+        <section className="formal-card">
+          <h2>จุดรับชำระของคุณ</h2><label htmlFor="terminal">รหัสจุดขาย</label>
           <input
             id="terminal"
             disabled={Boolean(shift)}
@@ -155,8 +159,8 @@ export function Pos({ userId }: { userId: string }) {
           >
             ล็อก POS
           </Button>
-          <h2 style={{ marginTop: 24 }}>1. กรอกยอดรวม</h2>
-          <output className="balance" aria-live="polite">
+          <h2 className="step-title" style={{ marginTop: 24 }}><span>1</span> กรอกยอดรวม</h2>
+          <output className="balance pos-total" aria-live="polite">
             ฿{amount || "0"}
           </output>
           <div className="keypad">
@@ -167,9 +171,7 @@ export function Pos({ userId }: { userId: string }) {
                   variant="outline"
                   disabled={busy || confirmed}
                   onClick={() => {
-                    setAmount((a) =>
-                      k === "⌫" ? a.slice(0, -1) : a.length < 8 ? a + k : a,
-                    );
+                    setAmount((a) => { if (k === "⌫") return a.slice(0, -1); const next = a + k; return /^\d{0,5}(\.\d{0,2})?$/.test(next) ? next : a; });
                   }}
                 >
                   {k}
@@ -199,8 +201,8 @@ export function Pos({ userId }: { userId: string }) {
             ยืนยันยอด
           </Button>
         </section>
-        <section className="card">
-          <h2>2. ระบุสมาชิก</h2>
+        <section className="formal-card">
+          <h2 className="step-title"><span>2</span> สแกน QR สมาชิก</h2>
           <p className="muted">
             สแกน QR ด้วย USB keyboard-wedge หรือวาง token จาก QR สมาชิก กล้องและ
             RFID ยังไม่เปิดใช้
@@ -216,7 +218,7 @@ export function Pos({ userId }: { userId: string }) {
               });
             }}
           >
-            <label htmlFor="token">Member token</label>
+            <label htmlFor="token">รหัสจาก QR สมาชิก</label>
             <input
               id="token"
               autoComplete="off"
@@ -232,8 +234,8 @@ export function Pos({ userId }: { userId: string }) {
             </Button>
           </form>
           {member && (
-            <>
-              <h2>3. ยืนยันชำระ</h2>
+            <div className="member-preview">
+              <h2 className="step-title"><span>3</span> ตรวจสอบและยืนยัน</h2>
               <p>
                 {member.name} · {member.memberId}
               </p>
@@ -297,9 +299,9 @@ export function Pos({ userId }: { userId: string }) {
                   })
                 }
               >
-                {uncertain ? "ตรวจสอบ/ส่งซ้ำด้วย key เดิม" : "Confirm Payment"}
+                {uncertain ? "ตรวจสอบ/ส่งซ้ำด้วย key เดิม" : "ยืนยันรับชำระเงิน"}
               </Button>
-            </>
+            </div>
           )}
           <p className="status" role="status">
             {status}
@@ -312,8 +314,8 @@ export function Pos({ userId }: { userId: string }) {
           )}
         </section>
       </div>
-      <section className="card">
-        <h2>ประวัติพนักงาน</h2>
+      <section className="formal-card">
+        <h2>รายการรับชำระของฉัน</h2><p className="muted">ล่าสุด 30 รายการ · ใบเสร็จจะแสดงหลังเซิร์ฟเวอร์ยืนยันยอดเท่านั้น</p>
         <Button
           variant="outline"
           onClick={() =>
@@ -327,6 +329,7 @@ export function Pos({ userId }: { userId: string }) {
         >
           โหลดประวัติ
         </Button>
+        {!history.length && <p className="empty-state">ยังไม่มีรายการรับชำระ</p>}
         {history.map((h) => (
           <p key={h.id}>
             {new Date(h.ledger.createdAt).toLocaleString("th-TH")} ·{" "}
@@ -334,6 +337,7 @@ export function Pos({ userId }: { userId: string }) {
           </p>
         ))}
       </section>
-    </>
+      {role === "SUPERVISOR" && <Refund userId={userId} />}
+    </div>
   );
 }

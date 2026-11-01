@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth, signIn, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -5,7 +6,8 @@ import { GoogleSignInButton } from "@/components/google-signin-button";
 import { registrationReady } from "@/lib/readiness";
 export default async function Home() {
   const configured = registrationReady();
-  const session = configured ? await auth() : null;
+  const session = process.env.AUTH_SECRET && process.env.DATABASE_URL ? await auth() : null;
+  if (session?.user?.id) redirect("/wallet");
   return (
     <>
       <span className="badge">SMART CANTEEN</span>

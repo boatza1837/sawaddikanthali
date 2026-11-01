@@ -13,5 +13,5 @@ export default async function PosPage() {
     !["EMPLOYEE", "SUPERVISOR"].includes(user.role)
   )
     return <h1>ต้องได้รับสิทธิ์พนักงานจากผู้ดูแล</h1>;
-  return <Pos userId={user.id} />;
+  return <Pos userId={user.id} name={user.name ?? "พนักงาน"} role={user.role} />;
 }

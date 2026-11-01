@@ -23,6 +23,8 @@ model User {
   tokens MemberToken[]
   cards RfidCard[]
   shifts StaffShift[]
+  adminMfa AdminMfa?
+  adminGrants AdminGrant[]
 }
 model Account {
   id String @id @default(cuid())
@@ -167,4 +169,21 @@ model AuditLog {
   detail String?
   createdAt DateTime @default(now())
   @@index([actorId,createdAt])
+}
+model AdminMfa {
+ userId String @id
+ secret String
+ enabled Boolean @default(false)
+ lastCounter BigInt @default(-1)
+ pendingSession String
+ expiresAt DateTime
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+}
+model AdminGrant {
+ digest String @id
+ userId String
+ sessionHash String
+ expiresAt DateTime
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+ @@index([userId,sessionHash])
 }

@@ -19,8 +19,14 @@ All responses are JSON. Money is integer satang, THB. Session mutations require 
 | POST     | /api/pos/refund            | Supervisor; {purchaseId,amount,key: UUID,reason}     |
 | POST     | /api/pos/lock              | Own open shift; {shiftId}; closes session's shift    |
 | GET      | /api/pos/history           | Staff; own latest 30 transactions                    |
-| GET      | /api/admin/overview        | Disabled pending independent MFA                     |
+| GET      | /api/admin/overview        | ADMIN + recent session-bound TOTP MFA                 |
 
 Charge reply includes transactionId. Idempotent replay returns the original transactionId and replayed=true; do not assume a second charge. A key used with changed amount, shift, token or actor conflicts. Token is consumed only during successful charge. Insufficient balance does not consume it. Refund approval is the supervisor call itself; no employee proposal workflow exists yet. Terminal lock closes the current shift and resets the POS, it is not an independent terminal-device authentication lock.
 
 Webhook sandbox event: {eventId,reference: intentId,paymentRef,amount,currency: THB,status: PAID}. Event ID plus digest deduplication and unique payment reference prevent credit twice. Signed amount/reference/currency must match; expired payments are rejected for operator investigation. Production must add signed provider timestamps/replay window, provider-specific verification, stored failed events, bounded ingress sizes/rate limits and settlement reconciliation. No unknown-card API pretends RFID is functional.
+
+## Administrative routes
+
+GET /api/admin/mfa returns enrollment/step-up status for an ACTIVE ADMIN. POST /api/admin/mfa/enroll returns a private setup key/otpauth URI only before first enrollment (10-minute session-bound setup). POST /api/admin/mfa/verify {code} activates/validates TOTP and sets a 15-minute session-bound grant.
+
+All routes below require that grant: GET /api/admin/members?q= searches at most 100 accounts; POST /api/admin/member {id,role,status,reason} changes non-admin registered accounts and revokes their sessions; POST /api/admin/terminal {id,name,active,locked} creates/updates a terminal and closes shifts when locked/inactive. No ADMIN privilege grant, arbitrary wallet adjustment or ledger mutation API. GET /api/pos/state returns only the staff member own open shift and recent history.

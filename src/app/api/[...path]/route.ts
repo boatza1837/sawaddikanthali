@@ -40,6 +40,14 @@ export const GET = api(async (req) => {
           : intent.status,
     };
   }
+  if (path === "/api/pos/state") {
+    ensure(["EMPLOYEE", "SUPERVISOR"].includes(user.role), "FORBIDDEN", 403);
+    const [shift, history] = await Promise.all([
+      db.staffShift.findFirst({ where: { userId: user.id, closedAt: null }, include: { terminal: true } }),
+      db.posTransaction.findMany({ where: { shift: { userId: user.id } }, take: 30, orderBy: { ledger: { createdAt: "desc" } }, include: { ledger: true } })
+    ]);
+    return { shift, history };
+  }
   if (path === "/api/pos/history") {
     ensure(["EMPLOYEE", "SUPERVISOR"].includes(user.role), "FORBIDDEN", 403);
     return db.posTransaction.findMany({
@@ -164,7 +172,8 @@ export const POST = api(async (req) => {
       const terminal = await tx.posTerminal.findUnique({
         where: { id: data.terminalId },
       });
-      ensure(terminal?.active && !terminal.locked, "TERMINAL_UNAVAILABLE", 409);
+      ensure(terminal, "TERMINAL_UNAVAILABLE", 409);
+      if (data.action === "open") ensure(terminal.active && !terminal.locked, "TERMINAL_UNAVAILABLE", 409);
       const open = await tx.staffShift.findFirst({
         where: { terminalId: terminal.id, closedAt: null },
       });

@@ -12,7 +12,8 @@
     "test:db": "vitest run tests/database.integration.ts tests/registration.integration.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "dev:online": "tsx scripts/dev-online.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

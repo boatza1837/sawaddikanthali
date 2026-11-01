@@ -1,0 +1,63 @@
+import { z } from "zod";
+import { api, actor } from "@/lib/http";
+import { db } from "@/lib/db";
+import { ensure } from "@/lib/errors";
+import { enroll, mfaStatus, requireAdmin, verifyMfa } from "@/modules/admin";
+import { serial } from "@/modules/finance";
+export const dynamic = "force-dynamic";
+export const GET = api(async req => {
+  const user = await actor(req), path = new URL(req.url).pathname;
+  if (path === "/api/admin/mfa") return mfaStatus(user);
+  await requireAdmin(user);
+  if (path === "/api/admin/overview") {
+    const [members, wallet, sales, refunds, shifts, terminals, audit, transactions] = await Promise.all([
+      db.user.count(), db.wallet.aggregate({ _sum: { balance: true } }),
+      db.posTransaction.aggregate({ _sum: { amount: true, refunded: true }, _count: true }),
+      db.ledgerTransaction.count({ where: { kind: "REFUND" } }),
+      db.staffShift.findMany({ where: { closedAt: null }, include: { user: { select: { name: true, email: true } }, terminal: true } }),
+      db.posTerminal.findMany({ orderBy: { id: "asc" } }),
+      db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+      db.posTransaction.findMany({ orderBy: { ledger: { createdAt: "desc" } }, take: 50, include: { ledger: { select: { createdAt: true } }, shift: { select: { user: { select: { name: true } }, terminalId: true } } } })
+    ]);
+    return { members, walletBalance: wallet._sum.balance ?? 0, grossSales: sales._sum.amount ?? 0, refunded: sales._sum.refunded ?? 0, saleCount: sales._count, refundCount: refunds, shifts, terminals, audit, transactions };
+  }
+  if (path === "/api/admin/members") {
+    const search = (new URL(req.url).searchParams.get("q") ?? "").slice(0, 100);
+    return db.user.findMany({ where: search ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { email: { contains: search, mode: "insensitive" } }, { id: search }] } : {}, select: { id: true, name: true, email: true, role: true, status: true, createdAt: true, wallet: { select: { balance: true } } }, take: 100, orderBy: { createdAt: "desc" } });
+  }
+  ensure(false, "NOT_FOUND", 404);
+});
+export const POST = api(async req => {
+  const user = await actor(req), path = new URL(req.url).pathname;
+  ensure(user.role === "ADMIN", "ADMIN_REQUIRED", 403);
+  if (path === "/api/admin/mfa/enroll") return enroll(user);
+  if (path === "/api/admin/mfa/verify") {
+    const { code } = z.object({ code: z.string().regex(/^\d{6}$/) }).strict().parse(await req.json());
+    return verifyMfa(user, code);
+  }
+  await requireAdmin(user);
+  if (path === "/api/admin/member") {
+    const data = z.object({ id: z.string().min(1), role: z.enum(["USER", "EMPLOYEE", "SUPERVISOR"]), status: z.enum(["ACTIVE", "SUSPENDED"]), reason: z.string().trim().min(5).max(500) }).strict().parse(await req.json());
+    return serial(async tx => {
+      const current = await tx.user.findUnique({ where: { id: data.id } });
+      ensure(current && current.id !== user.id && current.role !== "ADMIN", "PROTECTED_ACCOUNT", 403);
+      ensure(current.status !== "PENDING", "REGISTRATION_REQUIRED", 409);
+      await tx.user.update({ where: { id: data.id }, data: { role: data.role, status: data.status } });
+      await tx.session.deleteMany({ where: { userId: data.id } });
+      await tx.adminGrant.deleteMany({ where: { userId: data.id } });
+      await tx.memberToken.updateMany({ where: { userId: data.id, usedAt: null }, data: { usedAt: new Date() } });
+      await tx.auditLog.create({ data: { actorId: user.id, action: "MEMBER_ACCESS_CHANGED", targetId: data.id, detail: JSON.stringify({ before: { role: current.role, status: current.status }, after: { role: data.role, status: data.status }, reason: data.reason }) } });
+      return { saved: true };
+    });
+  }
+  if (path === "/api/admin/terminal") {
+    const data = z.object({ id: z.string().regex(/^[a-zA-Z0-9_-]{1,60}$/), name: z.string().trim().min(1).max(100), active: z.boolean(), locked: z.boolean() }).strict().parse(await req.json());
+    return serial(async tx => {
+      await tx.posTerminal.upsert({ where: { id: data.id }, create: data, update: { name: data.name, active: data.active, locked: data.locked } });
+      if (!data.active || data.locked) await tx.staffShift.updateMany({ where: { terminalId: data.id, closedAt: null }, data: { closedAt: new Date() } });
+      await tx.auditLog.create({ data: { actorId: user.id, action: "TERMINAL_UPDATED", targetId: data.id, detail: JSON.stringify(data) } });
+      return { saved: true };
+    });
+  }
+  ensure(false, "NOT_FOUND", 404);
+});
