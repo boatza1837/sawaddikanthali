@@ -1,5 +1,6 @@
 "use client";
 import { Refund } from "./refund";
+import { QrScanner } from "./qr-scanner";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { money, satang } from "@/lib/money";
@@ -56,6 +57,19 @@ export function Pos({ userId, name, role }: { userId: string; name: string; role
     if (!r.ok) throw Error(value.error);
     return value;
   }
+  function identifyMember(value: string) {
+    if (!confirmed || busy || uncertain || !shift) return;
+    setToken(value);
+    setMember(null);
+    setStatus("กำลังตรวจสอบ QR กับระบบ…");
+    requestKey.current = null;
+    run(async () => {
+      const found = await api("identify", { token: value });
+      setMember(found);
+      requestKey.current = crypto.randomUUID();
+      setStatus("ตรวจสอบชื่อสมาชิกและยอดเงิน แล้วกดยืนยันรับชำระ");
+    });
+  }
   async function run(fn: () => Promise<void>) {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -63,7 +77,8 @@ export function Pos({ userId, name, role }: { userId: string; name: string; role
     try {
       await fn();
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "NETWORK_ERROR");
+      const code = e instanceof Error ? e.message : "NETWORK_ERROR";
+      setStatus(code === "INVALID_MEMBER_TOKEN" ? "QR หมดอายุ ถูกใช้แล้ว หรือสมาชิกยังไม่พร้อมใช้งาน ให้สมาชิกกดสร้าง QR ใหม่แล้วสแกนอีกครั้ง" : code);
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -204,18 +219,13 @@ export function Pos({ userId, name, role }: { userId: string; name: string; role
         <section className="formal-card">
           <h2 className="step-title"><span>2</span> สแกน QR สมาชิก</h2>
           <p className="muted">
-            สแกน QR ด้วย USB keyboard-wedge หรือวาง token จาก QR สมาชิก กล้องและ
-            RFID ยังไม่เปิดใช้
+            เปิดกล้องแล้วเล็ง QR จากหน้า Wallet สมาชิก หรือใช้เครื่องสแกน USB และช่องกรอกรหัสด้านล่าง
           </p>
+          <QrScanner disabled={!confirmed || busy || uncertain || !shift} onScan={identifyMember} />
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              run(async () => {
-                const m = await api("identify", { token });
-                setMember(m);
-                requestKey.current = crypto.randomUUID();
-                setStatus("ตรวจสอบชื่อและยอดก่อนยืนยัน");
-              });
+              identifyMember(token);
             }}
           >
             <label htmlFor="token">รหัสจาก QR สมาชิก</label>

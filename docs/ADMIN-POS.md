@@ -17,7 +17,7 @@ If the setup key and device are both lost, recovery requires a trusted database 
 - No balance editing, ledger editing, mock revenue, payment-provider configuration or ADMIN privilege grant in the UI.
 
 ## POS
-An ACTIVE EMPLOYEE or SUPERVISOR visits /pos. Admin role alone is not a cashier role; assign staff to their own registered accounts. Open the terminal configured by Admin. A refresh restores the staff member's own open shift. Set the manual amount, confirm it, read a member QR using a USB keyboard scanner or paste its token, check the member/balance, then confirm. Camera and RFID are not integrated.
+An ACTIVE EMPLOYEE or SUPERVISOR visits /pos. Admin role alone is not a cashier role; assign staff to their own registered accounts. Open the terminal configured by Admin. A refresh restores the staff member's own open shift. Set the manual amount, confirm it, read a member QR using a USB keyboard scanner or paste its token, check the member/balance, then confirm. Camera QR scanning is available with front/back switching and local image decoding; RFID is not integrated.
 
 Charges use integer satang, serializable database transactions, conditional debit, immutable double-entry ledger and a single-use expiring token. A pending browser request is retained in sessionStorage with its original idempotency key. Never start a new charge after an unknown network result; retry the saved request and reconcile history. Recovery across closed tabs/devices or cleared storage still needs operator reconciliation.
 
@@ -27,8 +27,14 @@ SUPERVISOR has a refund form: original POS sale ID, amount and reason. Server re
 /manifest.webmanifest and local PNG icons provide a standalone app entry. Source icon is public/icons/app-icon.svg. Signed-in visits to / redirect server-side to /wallet; incomplete registration still appears at /wallet. Browser-supported install prompts are used when available; otherwise the button gives Safari/Chrome Add to Home Screen instructions. No offline balance/payment cache or service worker is used. Network is required; installation availability depends on the browser.
 
 ## Release limits
-Production PromptPay is still unavailable. These pages do not enable money topups or establish bank settlement support. Real account/device, mobile installation, hardware scanning and operational recovery need owner/device acceptance checks.
+Production PromptPay is still unavailable. These pages do not enable money topups or establish bank settlement support. Real account/device, mobile installation, camera/hardware scanning and operational recovery need owner/device acceptance checks.
 
 ## Live local preview
 
 Standard pnpm dev uses the local .env database. pnpm dev:online explicitly loads private .env.production.local credentials and connects to real online project records with localhost origin and hot reload. All Admin/POS writes in this mode affect those records; it is not a mock preview. Sandbox topups remain disabled. Never commit .env.production.local. Google OAuth client must allow http://localhost:3000/api/auth/callback/google.
+
+## Camera QR scanner
+
+After opening a shift and confirming the amount, press the camera scan button in POS and allow camera access. Rear camera is preferred; front/rear switching is available. jsQR is loaded on demand; video is decoded in a local canvas without storing or uploading images. Only the opaque member-token format is accepted; QR links are never opened. Successful scans stop the camera and call the existing authenticated identify API, which checks token expiry/use and member status. The employee still verifies the preview and explicitly confirms the charge. Scanning alone never debits a wallet.
+
+Tracks are stopped on cancellation, scan success, hidden tab, disabled controls and unmount, including late permission resolution. Denied permission, missing/busy cameras and unsupported browsers have visible messages; USB/manual input remains available. A secure browser context is required (HTTPS or localhost; a phone visiting a computer LAN HTTP address is insufficient). Decoder tests use a generated QR image, not a real camera. Front/back selection is a browser preference; actual mobile devices and camera permissions still require an owner acceptance test.
