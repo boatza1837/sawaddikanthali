@@ -1,6 +1,7 @@
 import { auth, signIn, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { GoogleSignInButton } from "@/components/google-signin-button";
 import { registrationReady } from "@/lib/readiness";
 export default async function Home() {
   const configured = registrationReady();
@@ -42,7 +43,7 @@ export default async function Home() {
               await signIn("google", { redirectTo: "/wallet" });
             }}
           >
-            <Button>Continue with Google</Button>
+            <GoogleSignInButton />
           </form>
         )}
       </section>

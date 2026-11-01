@@ -36,3 +36,11 @@
 - Brevo initially rejected the test from this workstation as an unauthorized IP. With explicit user approval, only that detected IP was authorized. Global API IP blocking remains enabled. A real connection-check email to the owner's account was then accepted by Brevo. Inbox delivery has not yet been independently confirmed; the events API currently returns no matching events. Vercel outbound IP authorization still needs testing and may require updates if IPs change.
 - 33 automated tests in five files passed against the dedicated local test database; build passed. Provider tests do not insert synthetic financial records in production.
 - Earlier pending Upstash/domain notes above describe the initial stage and are superseded by this update for Brevo/Redis. No new terms were accepted on Brevo: existing account sign-in and a restricted API key were used. No paid plans or bank/payment accounts were opened.
+
+## Live verification update
+
+- Brevo transactional UI confirms the connection-check message as Sent, Delivered and First opening (19:10 Bangkok). It shows a Brevo-managed sender domain for the verified Gmail address. This is a genuine provider delivery observation, not simulated data.
+- Both the workstation and the observed Vercel Singapore outbound IP are now authorized. Existing IP entries and global API IP blocking remain enabled. Future Vercel IP changes can still require authorization.
+- Google OAuth callback subsequently succeeded and a real session opened the pending-registration page. One earlier concurrent/overlapping OAuth attempt failed with Invalid code verifier; PKCE was not disabled. Sign-in button now prevents duplicate submissions while pending.
+- The current account's OTP send window was exhausted during setup retries. Do not reset/bypass production limits: wait for the fixed window to expire. Responses now include exact server Retry-After/remaining TTL, and the UI shows a countdown. OTP and phone forms validate separately, preserving the intended OTP-first flow.
+- 34 tests passed. End-to-end OTP from Vercel and phone collection still need completion after the send window clears. Do not claim completed registration or a funded wallet.
