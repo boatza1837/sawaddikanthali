@@ -492,3 +492,35 @@ code {
  .otp-request-button.is-suggested, .otp-request-sparks svg { animation:none; }
  .otp-request-button.is-suggested::before { display:none; }
 }
+
+/* Keep every OTP digit inside narrow mobile cards. */
+.otp-box-grid { grid-template-columns:repeat(6,minmax(0,1fr)); gap:clamp(4px,1.6vw,10px); width:100%; min-width:0; }
+.otp-box-grid .otp-digit { min-width:0; min-height:0; width:100%; max-width:none; font-size:clamp(18px,5vw,26px); }
+.registration-card { min-width:0; overflow-wrap:anywhere; }
+.registration-otp-heading { flex-wrap:wrap; gap:6px; }
+.registration-otp-heading > * { min-width:0; }
+@media(max-width:480px) {
+ .card-sparkle.registration-card { padding:22px 14px; }
+ .registration-card input:not([type="hidden"]) { font-size:16px; }
+ .registration-card .otp-digit { font-size:24px; }
+ .registration-card .button { max-width:100%; white-space:normal; }
+}
+/* Fast cashier decisions and customer receipt. */
+.pos-quick-add { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:7px; margin:0 0 18px; }
+.pos-quick-add .button { min-width:0; margin:0; padding:10px 3px; background:#e5f3e9; border-color:#bcdcc7; color:#076246; font-size:17px; }
+.pos-shortfall { background:#fff1f0; border:2px solid #e06459; border-radius:20px; padding:24px; margin-top:20px; color:#931b16; }
+.pos-shortfall h2 { color:#b42318; font-size:32px; margin:0; }
+.shortfall-total { display:block; color:#b42318; font-size:clamp(30px,5vw,46px); line-height:1.35; margin:10px 0; }
+.shortfall-after { background:#ffe1dd; border-radius:12px; padding:14px; margin:15px 0; }
+.shortfall-after strong { font-size:24px; }
+.shortfall-actions { display:grid; grid-template-columns:1fr; gap:10px; margin-top:20px; }
+.shortfall-actions .button { margin:0; min-height:58px; font-size:17px; }
+.pos-paid { padding:20px; border-radius:18px; background:#e8f7ed; color:#065f46; border:1px solid #a5d7b4; margin-bottom:20px; }
+.pos-paid > strong { font-size:26px; }
+.customer-receipt { border:1px solid #cce4d5; border-radius:26px; padding:30px; max-width:min(420px,calc(100vw - 32px)); color:#14243b; text-align:center; box-shadow:0 25px 80px #10291c25; }
+.customer-receipt::backdrop { background:#10291c75; backdrop-filter:blur(3px); }
+.customer-receipt-amount { display:block; font-size:44px; color:#047857; font-weight:800; margin:20px 0; }
+.customer-receipt code { display:block; font-size:12px; margin:16px 0; }
+@media(max-width:380px) { .pos-quick-add { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+
+.pos-grid > *, .workspace .formal-card { min-width:0; }

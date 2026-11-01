@@ -1,3 +1,4 @@
+import { MAX_OVERDRAFT } from "@/lib/credit";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { ensure } from "@/lib/errors";
@@ -83,6 +84,7 @@ export async function charge(input: {
   amount: number;
   key: string;
   shiftId: string;
+  allowNegative?: boolean;
 }) {
   const key = `purchase:${input.actorId}:${input.key}`;
   const hash = fingerprint([
@@ -90,6 +92,7 @@ export async function charge(input: {
     digest(input.token),
     input.amount,
     input.shiftId,
+    ...(input.allowNegative ? [true] : []),
   ]);
   return serial(async (tx) => {
     const previous = await replay(tx, key, hash);
@@ -140,10 +143,12 @@ export async function charge(input: {
     });
     ensure(consumed.count === 1, "TOKEN_USED", 409);
     const debit = await tx.wallet.updateMany({
-      where: { id: wallet.id, balance: { gte: amount } },
+      where: { id: wallet.id, balance: { gte: input.allowNegative ? amount - MAX_OVERDRAFT : amount } },
       data: { balance: { decrement: amount } },
     });
-    ensure(debit.count === 1, "INSUFFICIENT_BALANCE", 409);
+    ensure(debit.count === 1, input.allowNegative ? "OVERDRAFT_LIMIT_EXCEEDED" : "INSUFFICIENT_BALANCE", 409);
+    const balanceAfter = wallet.balance - amount;
+    const borrowed = Math.max(0, -balanceAfter) - Math.max(0, -wallet.balance);
     const ledger = await post(tx, {
       key,
       hash,
@@ -160,15 +165,21 @@ export async function charge(input: {
         shiftId: shift.id,
         memberId: token.userId,
         amount,
+        balanceBefore: wallet.balance,
+        balanceAfter,
+        borrowed,
+        overdraftApproved: input.allowNegative === true,
       },
     });
     await tx.auditLog.create({
       data: { actorId: input.actorId, action: "PURCHASE", targetId: ledger.id },
     });
+    if (input.allowNegative) await tx.auditLog.create({ data: { actorId: input.actorId, action: "OVERDRAFT_APPROVED", targetId: ledger.id, detail: JSON.stringify({ memberId: token.userId, amount, borrowed, balanceBefore: wallet.balance, balanceAfter }) } });
     return {
       transactionId: ledger.id,
       amount,
-      balance: wallet.balance - amount,
+      balance: balanceAfter,
+      borrowed,
       memberName: token.user.name,
       createdAt: ledger.createdAt,
       replayed: false,

@@ -37,7 +37,7 @@ Google verified email + provider subject -> pending user. Send random 6 digit OT
 
 ## 5. Ledger
 
-All mutations run in a serializable database transaction with bounded retry. Atomic conditional wallet debit prevents negative balances. Topup: DR CLEARING, CR WALLET_LIABILITY. Purchase: DR WALLET_LIABILITY, CR SALES. Refund: DR SALES, CR WALLET_LIABILITY. Each posting amount is positive integer satang; debit and credit totals match. Database deferred trigger checks balancing and wallet reconciliation; update/delete of posted ledger is blocked. Idempotency key is unique and bound to actor, operation and payload; mismatch is rejected. Refund requires original purchase, reason and supervisor approval, cannot exceed unrefunded original amount. No deletion or edits to posted history.
+All mutations run in a serializable database transaction with bounded retry. Atomic conditional debit rejects insufficient funds by default. The owner explicitly approved a separate cashier confirmation to permit debt up to THB 50 per member; the server and database enforce the same -5000-satang floor and record newly borrowed money plus the approving actor. Topup: DR CLEARING, CR WALLET_LIABILITY. Purchase: DR WALLET_LIABILITY, CR SALES. Refund: DR SALES, CR WALLET_LIABILITY. Each posting amount is positive integer satang; debit and credit totals match. Database deferred trigger checks balancing and wallet reconciliation; update/delete of posted ledger is blocked. Idempotency key is unique and bound to actor, operation and payload; mismatch is rejected. Refund requires original purchase, reason and supervisor approval, cannot exceed unrefunded original amount. No deletion or edits to posted history.
 
 ## 6. Payment sequence
 
@@ -64,7 +64,7 @@ Sandbox uses explicitly simulated payment data, never a real PromptPay QR. Produ
 
 ## 7. POS
 
-One screen: large numeric amount keypad -> confirm amount -> keyboard-wedge member token -> server identification preview -> confirmation -> atomic charge -> receipt then reset. Identification does not consume the token; charge consumes it transactionally. Displayed balance is only a preview. Duplicate click reuses request key. No offline approvals, automatic retry with a NEW key or automatic claim of success after network failure. Open shift and active unlocked terminal required. Lock/logout and staff history use server operations. Camera scanning is a later enhancement; typed/scanner token input works first. RFID endpoint remains unavailable until a challenge-response bridge is tested; UID alone never authorizes payment.
+One screen: large numeric amount keypad -> confirm amount -> keyboard-wedge member token -> server identification -> automatic atomic charge when sufficient, or an explicit bounded-overdraft/cancel decision when insufficient -> receipt then reset. Identification does not consume the token; charge consumes it transactionally. Displayed balance is only a preview. Duplicate click reuses request key. No offline approvals, automatic retry with a NEW key or automatic claim of success after network failure. Open shift and active unlocked terminal required. Lock/logout and staff history use server operations. Camera QR scanning with local decoding is implemented; USB/manual token entry remains available. RFID endpoint remains unavailable until a challenge-response bridge is tested; UID alone never authorizes payment.
 
 ## 8. API plan
 

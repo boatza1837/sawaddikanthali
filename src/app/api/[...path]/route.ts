@@ -143,6 +143,7 @@ export const POST = api(async (req) => {
         amount,
         key,
         shiftId: z.string().min(1),
+        allowNegative: z.boolean().optional(),
       })
       .strict()
       .parse(body);

@@ -175,7 +175,7 @@ export function Registration({ email, initialStep = "send", initialSeconds = 0 }
 
   return (
     <section
-      className="card-sparkle"
+      className="card-sparkle registration-card"
       style={{ maxWidth: 640, margin: "0 auto 32px" }}
     >
       {/* Sparkling Header Badge */}
@@ -485,12 +485,13 @@ export function Registration({ email, initialStep = "send", initialSeconds = 0 }
           background: "#ffffff",
           border: "2px solid #a7f3d0",
           borderRadius: 18,
-          padding: "22px 20px",
+          padding: "clamp(12px, 4vw, 20px)",
           marginBottom: 20,
           boxShadow: "0 4px 16px rgba(16, 185, 129, 0.06)",
         }}
       >
         <div
+          className="registration-otp-heading"
           style={{
             display: "flex",
             justifyContent: "space-between",

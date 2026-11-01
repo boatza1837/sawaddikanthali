@@ -84,6 +84,7 @@ model LedgerTransaction {
   createdAt DateTime @default(now())
   entries LedgerEntry[]
   pos PosTransaction?
+  @@index([createdAt])
 }
 model LedgerEntry {
   id String @id @default(cuid())
@@ -150,6 +151,10 @@ model PosTransaction {
   amount Int
   memberId String
   refunded Int @default(0)
+  balanceBefore Int?
+  balanceAfter Int?
+  borrowed Int @default(0)
+  overdraftApproved Boolean @default(false)
   ledger LedgerTransaction @relation(fields:[ledgerId],references:[id])
   shift StaffShift @relation(fields:[shiftId],references:[id])
 }

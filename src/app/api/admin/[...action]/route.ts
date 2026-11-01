@@ -1,3 +1,4 @@
+import { bangkokToday, bangkokDayBounds } from "@/lib/report-day";
 import { z } from "zod";
 import { api, actor } from "@/lib/http";
 import { db } from "@/lib/db";
@@ -9,6 +10,25 @@ export const GET = api(async req => {
   const user = await actor(req), path = new URL(req.url).pathname;
   if (path === "/api/admin/mfa") return mfaStatus(user);
   await requireAdmin(user);
+  if (path === "/api/admin/debt") {
+    const params = new URL(req.url).searchParams;
+    const day = params.get("date") ?? bangkokToday();
+    const bounds = bangkokDayBounds(day);
+    ensure(bounds, "INVALID_REPORT_DATE", 400);
+    const after = z.string().min(1).max(100).optional().parse(params.get("after") ?? undefined);
+    const where = { borrowed: { gt: 0 }, ledger: { createdAt: bounds } };
+    if (after) ensure(await db.posTransaction.findFirst({ where: { ...where, id: after }, select: { id: true } }), "INVALID_REPORT_CURSOR", 400);
+    const [totals, borrowers, debt, page] = await Promise.all([
+      db.posTransaction.aggregate({ where, _sum: { borrowed: true }, _count: true }),
+      db.posTransaction.groupBy({ by: ["memberId"], where }),
+      db.wallet.aggregate({ where: { balance: { lt: 0 } }, _sum: { balance: true } }),
+      db.posTransaction.findMany({ where, take: 51, ...(after ? { cursor: { id: after }, skip: 1 } : {}), orderBy: [{ ledger: { createdAt: "desc" } }, { id: "desc" }], include: { ledger: { select: { createdAt: true } }, shift: { select: { terminalId: true, user: { select: { name: true, email: true } } } } } })
+    ]);
+    const rows = page.slice(0, 50);
+    const members = await db.user.findMany({ where: { id: { in: [...new Set(rows.map(row => row.memberId))] } }, select: { id: true, name: true, email: true, wallet: { select: { balance: true } } } });
+    const byId = new Map(members.map(member => [member.id, member]));
+    return { day, borrowed: totals._sum.borrowed ?? 0, count: totals._count, borrowers: borrowers.length, outstanding: -(debt._sum.balance ?? 0), nextCursor: page.length > 50 ? rows.at(-1)!.id : null, rows: rows.map(row => { const m = byId.get(row.memberId); return { ...row, member: m ? { name: m.name, email: m.email, balance: m.wallet?.balance ?? 0 } : null }; }) };
+  }
   if (path === "/api/admin/overview") {
     const [members, wallet, sales, refunds, shifts, terminals, audit, transactions] = await Promise.all([
       db.user.count(), db.wallet.aggregate({ _sum: { balance: true } }),

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import QRCode from "qrcode";
 import { Button } from "./ui/button";
 import { money, satang } from "@/lib/money";
@@ -50,18 +50,41 @@ export function Wallet({
     payment?: { display: string };
   } | null>(null);
 
+  const seenEntries = useRef<Set<string> | null>(null);
+  const refreshingRef = useRef(false);
+  const receiptDialog = useRef<HTMLDialogElement | null>(null);
+  const [receipts, setReceipts] = useState<WalletData["entries"]>([]);
+  const currentReceipt = receipts[0];
+  useEffect(() => {
+    const dialog = receiptDialog.current;
+    if (currentReceipt && !dialog?.open) dialog?.showModal();
+    if (!currentReceipt && dialog?.open) dialog.close();
+  }, [currentReceipt]);
+  const dismissReceipt = () => setReceipts(current => current.slice(1));
+
   // Refresh wallet balance & transactions
   const refresh = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     setRefreshing(true);
     try {
       const r = await fetch("/api/wallet", { cache: "no-store" });
       const d = await r.json();
       if (!r.ok) throw Error(d.error);
-      setWallet(d);
+      const data = d as WalletData;
+      if (data?.entries) {
+        if (seenEntries.current) {
+          const paid = data.entries.filter(entry => !seenEntries.current!.has(entry.id) && entry.side === "DEBIT" && entry.transaction.kind === "PURCHASE").reverse();
+          if (paid.length) { setReceipts(current => [...current, ...paid]); setQr(""); setExpires(""); }
+        } else seenEntries.current = new Set();
+        data.entries.forEach(entry => seenEntries.current!.add(entry.id));
+      }
+      setWallet(data);
       setStatus("");
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "NETWORK_ERROR");
     } finally {
+      refreshingRef.current = false;
       setRefreshing(false);
     }
   }, []);
@@ -72,9 +95,11 @@ export function Wallet({
     const t = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       refresh();
-    }, 5000);
-    return () => clearInterval(t);
-  }, [refresh]);
+    }, qr ? 1000 : 5000);
+    const visible = () => { if (!document.hidden) void refresh(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", visible); };
+  }, [refresh, qr]);
 
   // Top-up status polling
   useEffect(() => {
@@ -156,6 +181,9 @@ export function Wallet({
 
   return (
     <>
+      <dialog ref={receiptDialog} className="customer-receipt" aria-labelledby="receipt-title" onCancel={event => { event.preventDefault(); dismissReceipt(); }}>
+        {currentReceipt && <><span className="badge">ชำระสำเร็จ</span><h2 id="receipt-title">หักเงินจาก Wallet แล้ว</h2><strong className="customer-receipt-amount">{money(currentReceipt.amount)}</strong><p>ยอดคงเหลือปัจจุบัน <strong style={{color: (wallet?.balance ?? 0) < 0 ? "#b42318" : "#047857"}}>{money(wallet?.balance ?? 0)}</strong></p>{(wallet?.balance ?? 0) < 0 && <p>ยอดติดลบคือเงินที่ยืมใช้ กรุณาชำระคืนเมื่อเติมเงิน</p>}<code>{currentReceipt.transaction.id}</code><Button onClick={dismissReceipt}>{receipts.length > 1 ? "ดูรายการถัดไป" : "รับทราบ"}</Button></>}
+      </dialog>
       {/* Formal Header: User identity & Logout Button */}
       <div
         className="row"
@@ -403,7 +431,7 @@ export function Wallet({
             </p>
 
             <Button
-              disabled={busy}
+              disabled={busy || !wallet}
               onClick={async () => {
                 const d = await post("/api/member-token", {});
                 if (d) {
