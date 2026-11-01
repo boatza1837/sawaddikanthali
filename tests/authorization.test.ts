@@ -4,7 +4,8 @@ vi.mock("@/lib/db", () => ({ db: { user: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/security", () => ({ rateLimit: vi.fn(async () => {}) }));
 import { auth } from "../src/auth";
 import { db } from "../src/lib/db";
-import { actor } from "../src/lib/http";
+import { actor, api } from "../src/lib/http";
+import { DomainError } from "../src/lib/errors";
 const origin = "http://localhost:3000";
 const request = (source = origin) =>
   new Request(`${origin}/api/pos/charge`, {
@@ -49,5 +50,18 @@ describe("session and authorization boundary", () => {
       status: "PENDING",
     } as never);
     await expect(actor(request())).rejects.toThrow("REGISTRATION_REQUIRED");
+  });
+});
+
+it("returns a no-store 429 and exact Retry-After so clients do not guess the OTP wait", async () => {
+  const response = await api(async () => {
+    throw new DomainError("RATE_LIMITED", 429, 123);
+  })(request());
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("123");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(await response.json()).toEqual({
+    error: "RATE_LIMITED",
+    retryAfter: 123,
   });
 });

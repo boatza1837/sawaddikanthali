@@ -41,8 +41,19 @@ export function api(fn: (req: Request) => Promise<unknown>) {
     } catch (error) {
       if (error instanceof DomainError)
         return NextResponse.json(
-          { error: error.code },
-          { status: error.status, headers: { "Cache-Control": "no-store" } },
+          {
+            error: error.code,
+            ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
+          },
+          {
+            status: error.status,
+            headers: {
+              "Cache-Control": "no-store",
+              ...(error.retryAfter
+                ? { "Retry-After": String(error.retryAfter) }
+                : {}),
+            },
+          },
         );
       if (error instanceof ZodError)
         return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
