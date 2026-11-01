@@ -41,7 +41,7 @@ export const GET = api(async (req) => {
     };
   }
   if (path === "/api/pos/state") {
-    ensure(["EMPLOYEE", "SUPERVISOR"].includes(user.role), "FORBIDDEN", 403);
+    ensure(["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(user.role), "FORBIDDEN", 403);
     const [shift, history] = await Promise.all([
       db.staffShift.findFirst({ where: { userId: user.id, closedAt: null }, include: { terminal: true } }),
       db.posTransaction.findMany({ where: { shift: { userId: user.id } }, take: 30, orderBy: { ledger: { createdAt: "desc" } }, include: { ledger: true } })
@@ -49,7 +49,7 @@ export const GET = api(async (req) => {
     return { shift, history };
   }
   if (path === "/api/pos/history") {
-    ensure(["EMPLOYEE", "SUPERVISOR"].includes(user.role), "FORBIDDEN", 403);
+    ensure(["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(user.role), "FORBIDDEN", 403);
     return db.posTransaction.findMany({
       where: { shift: { userId: user.id } },
       take: 30,

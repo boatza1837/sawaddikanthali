@@ -24,7 +24,7 @@ export async function actor(request?: Request, staff = false, pending = false) {
   if (!pending) ensure(user.status === "ACTIVE", "REGISTRATION_REQUIRED", 403);
   if (staff)
     ensure(
-      ["EMPLOYEE", "SUPERVISOR"].includes(user.role),
+      ["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(user.role),
       "STAFF_REQUIRED",
       403,
     );

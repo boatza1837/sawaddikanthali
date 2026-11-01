@@ -36,6 +36,13 @@ describe("session and authorization boundary", () => {
     } as never);
     await expect(actor(request(), true)).rejects.toThrow("STAFF_REQUIRED");
   });
+  it("allows ACTIVE admins to use cashier endpoints, but rejects suspended admins", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin" } } as never);
+    vi.mocked(db.user.findUnique).mockResolvedValue({ id: "admin", role: "ADMIN", status: "ACTIVE" } as never);
+    expect((await actor(request(), true)).role).toBe("ADMIN");
+    vi.mocked(db.user.findUnique).mockResolvedValue({ id: "admin", role: "ADMIN", status: "SUSPENDED" } as never);
+    await expect(actor(request(), true)).rejects.toThrow("FORBIDDEN");
+  });
   it("rejects suspended staff and incomplete registration", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "u" } } as never);
     vi.mocked(db.user.findUnique).mockResolvedValue({

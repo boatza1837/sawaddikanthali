@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { memberQrToken } from "@/lib/member-qr";
 
-export function QrScanner({ disabled, onScan }: {
+export function QrScanner({ disabled, onScan, openRequest = 0 }: {
   disabled: boolean;
+  openRequest?: number;
   onScan: (token: string) => void;
 }) {
   const [active, setActive] = useState(false);
@@ -12,6 +13,13 @@ export function QrScanner({ disabled, onScan }: {
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [message, setMessage] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const handledOpenRequest = useRef(0);
+  useEffect(() => {
+    if (!disabled && openRequest > handledOpenRequest.current) {
+      handledOpenRequest.current = openRequest;
+      setActive(true);
+    }
+  }, [openRequest, disabled]);
   const onScanRef = useRef(onScan);
   useEffect(() => { onScanRef.current = onScan; }, [onScan]);
 

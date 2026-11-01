@@ -10,7 +10,7 @@ export default async function PosPage() {
   const user = await db.user.findUniqueOrThrow({ where: { id: s.user.id } });
   if (
     user.status !== "ACTIVE" ||
-    !["EMPLOYEE", "SUPERVISOR"].includes(user.role)
+    !["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(user.role)
   )
     return <h1>ต้องได้รับสิทธิ์พนักงานจากผู้ดูแล</h1>;
   return <Pos userId={user.id} name={user.name ?? "พนักงาน"} role={user.role} />;

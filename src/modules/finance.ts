@@ -97,7 +97,7 @@ export async function charge(input: {
     const staff = await tx.user.findUnique({ where: { id: input.actorId } });
     ensure(
       staff?.status === "ACTIVE" &&
-        ["EMPLOYEE", "SUPERVISOR"].includes(staff.role),
+        ["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(staff.role),
       "STAFF_REQUIRED",
       403,
     );

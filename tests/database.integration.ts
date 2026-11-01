@@ -203,6 +203,18 @@ suite("PostgreSQL financial integration (dedicated test database only)", () => {
       }),
     ).rejects.toThrow();
   });
+  it("allows an admin to charge only through their own valid open shift", async () => {
+    await db.user.update({ where: { id: staffId }, data: { role: "ADMIN" } });
+    try {
+      const value = await token();
+      await expect(charge({ actorId: staffId, shiftId: "not-owned-or-missing", token: value, amount: 100, key: randomUUID() })).rejects.toThrow("INVALID_SHIFT");
+      const before = (await db.wallet.findUniqueOrThrow({ where: { id: walletId } })).balance;
+      await charge({ actorId: staffId, shiftId, token: value, amount: 100, key: randomUUID() });
+      expect((await db.wallet.findUniqueOrThrow({ where: { id: walletId } })).balance).toBe(before - 100);
+    } finally {
+      await db.user.update({ where: { id: staffId }, data: { role: "SUPERVISOR" } });
+    }
+  });
   it("wallet summary exactly equals liability credits minus debits", async () => {
     const entries = await db.ledgerEntry.findMany({ where: { walletId } });
     const sum = entries.reduce(

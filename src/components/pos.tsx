@@ -8,6 +8,7 @@ type Member = { name: string; memberId: string; balance: number };
 export function Pos({ userId, name, role }: { userId: string; name: string; role: string }) {
   const [amount, setAmount] = useState(""),
     [confirmed, setConfirmed] = useState(false),
+    [cameraRequest, setCameraRequest] = useState(0),
     [token, setToken] = useState(""),
     [member, setMember] = useState<Member | null>(null),
     [shift, setShift] = useState(""),
@@ -116,7 +117,7 @@ export function Pos({ userId, name, role }: { userId: string; name: string; role
       <div className="workspace-heading">
         <div>
           <span className="badge">SMART CANTEEN · STAFF COUNTER</span>
-          <h1>รับชำระอย่างคล่องตัว</h1><p className="muted">สวัสดี {name} · {role === "SUPERVISOR" ? "หัวหน้างาน" : "พนักงาน"} · {shift ? "กำลังเปิดกะ" : "เปิดกะเพื่อเริ่มรับชำระ"}</p>
+          <h1>รับชำระอย่างคล่องตัว</h1><p className="muted">สวัสดี {name} · {role === "ADMIN" ? "ผู้ดูแล" : role === "SUPERVISOR" ? "หัวหน้างาน" : "พนักงาน"} · {shift ? "กำลังเปิดกะ" : "เปิดกะเพื่อเริ่มรับชำระ"}</p>
         </div>
         <form action="/api/auth/signout">
           <Button variant="outline">ออกจากระบบ</Button>
@@ -207,6 +208,7 @@ export function Pos({ userId, name, role }: { userId: string; name: string; role
               try {
                 satang(amount);
                 setConfirmed(true);
+                setCameraRequest(value => value + 1);
                 setStatus("");
               } catch {
                 setStatus("จำนวนเงินไม่ถูกต้อง");
@@ -221,7 +223,7 @@ export function Pos({ userId, name, role }: { userId: string; name: string; role
           <p className="muted">
             เปิดกล้องแล้วเล็ง QR จากหน้า Wallet สมาชิก หรือใช้เครื่องสแกน USB และช่องกรอกรหัสด้านล่าง
           </p>
-          <QrScanner disabled={!confirmed || busy || uncertain || !shift} onScan={identifyMember} />
+          <QrScanner openRequest={cameraRequest} disabled={!confirmed || busy || uncertain || !shift} onScan={identifyMember} />
           <form
             onSubmit={(e) => {
               e.preventDefault();
