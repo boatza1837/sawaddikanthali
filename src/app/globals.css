@@ -468,3 +468,27 @@ code {
 .qr-camera-preview video { display:block; width:100%; height:100%; object-fit:contain; }
 .qr-camera-guide { position:absolute; width:60%; aspect-ratio:1; max-height:80%; border:3px solid #a7f3d0; border-radius:20px; left:50%; top:50%; transform:translate(-50%,-50%); box-shadow:0 0 0 100px #0002; pointer-events:none; }
 .qr-camera-message { color:#145d48; font-size:14px; }
+
+/* Draw attention to the first OTP request without putting emoji in its label. */
+.otp-request-button { position:relative; isolation:isolate; overflow:hidden; }
+.otp-request-button .otp-request-label { position:relative; z-index:2; }
+.otp-request-button .otp-request-sparks { display:none; }
+.otp-request-button.is-suggested { animation:otp-request-glow 3s ease-in-out infinite; }
+.otp-request-button.is-suggested::before {
+  content:""; position:absolute; z-index:0; inset:-80% -50%;
+  background:linear-gradient(110deg,transparent 40%,#ffffff08 44%,#ffffff55 50%,#ffffff08 56%,transparent 60%);
+  transform:translateX(-75%); animation:otp-request-shine 3.6s ease-in-out infinite; pointer-events:none;
+}
+.otp-request-button.is-suggested .otp-request-sparks {
+  display:block; position:absolute; inset:0; z-index:1; pointer-events:none;
+}
+.otp-request-sparks svg { position:absolute; fill:#e9fff4; filter:drop-shadow(0 0 3px #ffffff80); animation:otp-request-spark 3s ease-in-out infinite; }
+.otp-request-sparks svg:first-child { width:13px; height:13px; right:7px; top:5px; }
+.otp-request-sparks svg:last-child { width:9px; height:9px; left:7px; bottom:5px; animation-delay:1.2s; }
+@keyframes otp-request-shine { 0%,20% { transform:translateX(-75%); } 65%,100% { transform:translateX(75%); } }
+@keyframes otp-request-glow { 0%,100% { box-shadow:0 3px 12px #04785725,0 0 0 0 #34d39900; } 50% { box-shadow:0 5px 20px #04785735,0 0 0 5px #34d39920; } }
+@keyframes otp-request-spark { 0%,100% { opacity:.25; transform:scale(.65) rotate(0); } 50% { opacity:.95; transform:scale(1) rotate(35deg); } }
+@media (prefers-reduced-motion:reduce) {
+ .otp-request-button.is-suggested, .otp-request-sparks svg { animation:none; }
+ .otp-request-button.is-suggested::before { display:none; }
+}

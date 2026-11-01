@@ -449,16 +449,15 @@ export function Registration({ email, initialStep = "send", initialSeconds = 0 }
             <Button
               disabled={busy || seconds > 0 || activeStep === "phone"}
               onClick={() => submit("send", {})}
+              className={`otp-request-button${activeStep === "send" && !busy && seconds === 0 ? " is-suggested" : ""}`}
               style={{ minHeight: 44, padding: "8px 18px" }}
             >
               {seconds ? (
                 `ขอรหัสใหม่ได้ใน ${seconds} วินาที`
               ) : (
                 <>
-                  <span className="sparkle-icon" style={{ marginRight: 6 }}>
-                    ✨
-                  </span>
-                  {activeStep === "phone" ? "ยืนยันอีเมลแล้ว ✓" : activeStep === "send" ? "ขอรหัส OTP ทางอีเมล" : "ขอรหัส OTP ใหม่"}
+                  <span className="otp-request-sparks" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 0 15 9 24 12 15 15 12 24 9 15 0 12 9 9Z" /></svg><svg viewBox="0 0 24 24"><path d="M12 0 15 9 24 12 15 15 12 24 9 15 0 12 9 9Z" /></svg></span>
+                  <span className="otp-request-label">{activeStep === "phone" ? "ยืนยันอีเมลแล้ว ✓" : activeStep === "send" ? "ขอรหัส OTP ทางอีเมล" : "ขอรหัส OTP ใหม่"}</span>
                 </>
               )}
             </Button>
