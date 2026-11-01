@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Registration } from "@/components/registration";
 import { Wallet } from "@/components/wallet";
+import { slipConfig } from "@/modules/slip2go";
 import { registrationReady, sandboxAvailable } from "@/lib/readiness";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function WalletPage() {
       name={user.name ?? session.user?.name ?? undefined}
       email={user.email ?? session.user?.email ?? undefined}
       sandboxEnabled={sandboxAvailable()}
+      slipEnabled={Boolean(slipConfig())}
       onSignOut={handleSignOut}
     />
   );

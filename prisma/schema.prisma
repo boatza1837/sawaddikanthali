@@ -113,6 +113,7 @@ model TopupIntent {
   createdAt DateTime @default(now())
   wallet Wallet @relation(fields:[walletId],references:[id])
   webhooks PaymentWebhook[]
+  slipUploads SlipUpload[]
 }
 model PaymentWebhook {
   id String @id
@@ -220,4 +221,15 @@ model MemberNotice {
  token MemberToken @relation(fields:[tokenId],references:[id],onDelete:Cascade)
  @@index([userId,expiresAt])
  @@index([tokenId])
+}
+
+model SlipUpload {
+  id String @id @default(cuid())
+  imageHash String @unique
+  intentId String
+  lease String
+  leaseUntil DateTime
+  createdAt DateTime @default(now())
+  intent TopupIntent @relation(fields:[intentId],references:[id])
+  @@index([intentId,leaseUntil])
 }

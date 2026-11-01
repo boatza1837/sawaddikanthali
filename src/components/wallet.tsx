@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import QRCode from "qrcode";
+import { SlipTopup } from "./slip-topup";
 import { Button } from "./ui/button";
 import { MAX_OVERDRAFT } from "@/lib/credit";
 import { money, satang } from "@/lib/money";
@@ -21,6 +22,7 @@ interface WalletProps {
   phone: string | null;
   phoneVerified?: boolean;
   sandboxEnabled: boolean;
+  slipEnabled: boolean;
   name?: string | null;
   email?: string | null;
   onSignOut?: () => Promise<void>;
@@ -30,6 +32,7 @@ export function Wallet({
   phone,
   phoneVerified = false,
   sandboxEnabled,
+  slipEnabled,
   name,
   email,
   onSignOut,
@@ -517,146 +520,8 @@ export function Wallet({
           </div>
         </section>
 
-        {/* Card 2: Top-up Section */}
-        <section className="formal-card">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: 18, color: "#14243b" }}>
-              {sandboxEnabled ? "เติมเงิน · ระบบทดสอบ Sandbox" : "เติมเงิน"}
-            </h2>
-            <span
-              className="badge"
-              style={{
-                fontSize: 11,
-                background: sandboxEnabled ? "#fef3c7" : "#f1f5f9",
-                color: sandboxEnabled ? "#92400e" : "#64748b",
-                borderColor: sandboxEnabled ? "#fde68a" : "#cbd5e1",
-              }}
-            >
-              {sandboxEnabled ? "SANDBOX MODE" : "เร็วๆ นี้"}
-            </span>
-          </div>
-
-          <div className="notice" style={{ fontSize: 13, marginBottom: 16 }}>
-            {sandboxEnabled
-              ? "ระบบทดสอบจำลอง: ไม่ใช่การตัดเงินจริงและไม่มี PromptPay จริง"
-              : "ยังไม่เปิดให้บริการเติมเงิน กำลังเชื่อมต่อระบบผู้ให้บริการชำระเงินอย่างเป็นทางการ"}
-          </div>
-
-          <label htmlFor="amount" style={{ fontSize: 14, color: "#14243b" }}>
-            จำนวนเงินที่ต้องการเติม (บาท)
-          </label>
-          <input
-            id="amount"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            style={{ fontSize: 18, fontWeight: 700, color: "#065f46" }}
-          />
-
-          {/* Quick Amount Chips */}
-          <div style={{ fontSize: 12, color: "#617080", marginTop: 4 }}>
-            เลือกจำนวนด่วน:
-          </div>
-          <div className="chip-group">
-            {quickAmounts.map((val) => (
-              <button
-                key={val}
-                type="button"
-                className={`chip ${amount === val ? "active" : ""}`}
-                onClick={() => setAmount(val)}
-              >
-                +{val} บาท
-              </button>
-            ))}
-          </div>
-
-          <Button
-            disabled={busy || !sandboxEnabled}
-            style={{ width: "100%", minHeight: 44, marginTop: 4 }}
-            onClick={async () => {
-              try {
-                const value = satang(amount);
-                const d = await post("/api/topups", {
-                  amount: value,
-                  key: crypto.randomUUID(),
-                });
-                if (d) setIntent(d);
-              } catch {
-                setStatus("กรุณากรอกจำนวนเงินให้ถูกต้อง");
-              }
-            }}
-          >
-            {sandboxEnabled
-              ? "สร้างรายการเติมเงินทดสอบ"
-              : "ยังไม่เปิดบริการเติมเงิน"}
-          </Button>
-
-          {/* Topup Reference & Status */}
-          {intent && (
-            <div
-              style={{
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
-                borderRadius: 12,
-                padding: 14,
-                marginTop: 16,
-                fontSize: 13,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 6,
-                }}
-              >
-                <strong>รหัสอ้างอิง:</strong>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(intent.id)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#047857",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  {copiedId === intent.id ? "✔️ คัดลอกแล้ว" : "คัดลอก"}
-                </button>
-              </div>
-              <code style={{ fontSize: 12, color: "#475569" }}>
-                {intent.id}
-              </code>
-              <p style={{ margin: "8px 0 4px" }}>
-                <strong>สถานะ:</strong>{" "}
-                <span
-                  style={{
-                    color: intent.status === "PAID" ? "#047857" : "#b45309",
-                    fontWeight: 650,
-                  }}
-                >
-                  {intent.status}
-                </span>
-              </p>
-              {intent.payment?.display && (
-                <small style={{ color: "#64748b" }}>
-                  {intent.payment.display}
-                </small>
-              )}
-            </div>
-          )}
-        </section>
-      </div>
+        <SlipTopup enabled={slipEnabled} onPaid={refresh} />
+</div>
 
       {/* Priority Tier 2: Transaction History with Filter Tabs & Skeletons */}
       <section className="formal-card">
