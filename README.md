@@ -49,3 +49,9 @@ Implemented: architecture/ERD/sequences, Next.js server routes, Google Auth.js c
 Incomplete: admin MFA enrollment/re-authentication and admin dashboard/management (blocked deliberately), production PromptPay adapter and settlement reconciliation, refund request/approval UI (supervisor API approval only), settlement after intent expiry operational workflow, camera scanning, notifications/outbox, email delivery retry job, automatic pending-intent expiration worker, reporting/export, hardware/card provisioning, storage/monitoring, PWA, production backup/restore and full accessibility/browser/e2e suite. Dynamic production QR therefore remains a launch blocker. A working local financial foundation does not mean all Phase 1 acceptance criteria are complete.
 
 See docs/ARCHITECTURE.md, docs/API.md, docs/SECURITY.md and docs/DEPLOYMENT.md. Verification results are in docs/VERIFICATION.md.
+
+## Email via Brevo (user-approved alternative)
+
+Set EMAIL_PROVIDER=brevo, BREVO_API_KEY and BREVO_SENDER_EMAIL to an already verified sender in your own Brevo account. Resend remains optional. Use a dedicated restricted key with Transactional email permission; do not copy secrets/hardcoded SMTP passwords from another app. Brevo account IP restrictions must permit the actual outbound server IP; do not disable global restrictions to make a test pass. Vercel outbound IPs can change, so delivery/authorization needs operational review before general launch. Credentials alone do not prove mailbox delivery.
+
+Operator checks: `node --env-file=.env.production.local --import tsx scripts/check-services.ts` checks database and actual Redis limiting. `node --env-file=.env.production.local --import tsx scripts/check-email.ts recipient-email` sends one clearly labelled connection-check email; it does not create an OTP or modify a wallet. Only run it for an authorized recipient.

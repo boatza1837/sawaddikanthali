@@ -26,3 +26,13 @@
 ## Private configuration
 
 .env.production.local is ignored by Git. Never upload it. Do not paste tokens into chats/screenshots. Rotate secrets if disclosed outside the intended operator/provider channels. CLI migrations require the database URL; application startup does not run migrations automatically.
+
+## Update — Brevo and Upstash connected
+
+- User approved Upstash Terms/Privacy, Marketplace Addendum and sharing Vercel ID/email/usage data with Upstash. smart-canteen-redis Free in Singapore is provisioned and connected. Actual PostgreSQL connectivity and Redis rate-limit rejection check passed. The application supports both UPSTASH_REDIS_REST_* names and Vercel-generated KV_REST_API_* names.
+- User approved switching email to the existing Brevo account with a new key. Created Smart Canteen OTP as Restricted with only Transactional email permission. Existing MatchSpace key, sender settings and D:\Gehue files were not changed. Restricted key expires Nov 1, 2027 or after 90 days unused per Brevo UI.
+- Existing verified Gmail sender is used, without requiring a new custom domain for this provider configuration. Brevo may rewrite free-mail sender domains; see its published sender-compliance policy. Domain authentication is still preferable for deliverability.
+- EMAIL_PROVIDER=brevo, BREVO_API_KEY and BREVO_SENDER_EMAIL were saved as Production Secrets on Vercel. Resend stays an optional adapter, not the active email route. A separate Sending-access Resend key was created; the user's existing keys were preserved.
+- Brevo initially rejected the test from this workstation as an unauthorized IP. With explicit user approval, only that detected IP was authorized. Global API IP blocking remains enabled. A real connection-check email to the owner's account was then accepted by Brevo. Inbox delivery has not yet been independently confirmed; the events API currently returns no matching events. Vercel outbound IP authorization still needs testing and may require updates if IPs change.
+- 33 automated tests in five files passed against the dedicated local test database; build passed. Provider tests do not insert synthetic financial records in production.
+- Earlier pending Upstash/domain notes above describe the initial stage and are superseded by this update for Brevo/Redis. No new terms were accepted on Brevo: existing account sign-in and a restricted API key were used. No paid plans or bank/payment accounts were opened.

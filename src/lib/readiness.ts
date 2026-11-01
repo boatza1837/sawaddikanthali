@@ -1,14 +1,14 @@
+import { emailConfigured } from "@/modules/email";
+import { redisConfigured } from "./redis";
 export function registrationReady() {
   return Boolean(
     process.env.AUTH_SECRET &&
     process.env.AUTH_GOOGLE_ID &&
     process.env.AUTH_GOOGLE_SECRET &&
     process.env.DATABASE_URL &&
-    process.env.RESEND_API_KEY &&
-    process.env.EMAIL_FROM &&
+    emailConfigured() &&
     process.env.OTP_PEPPER &&
-    process.env.UPSTASH_REDIS_REST_URL &&
-    process.env.UPSTASH_REDIS_REST_TOKEN,
+    redisConfigured(),
   );
 }
 export function sandboxAvailable() {

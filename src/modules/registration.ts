@@ -1,16 +1,12 @@
 import { randomInt, randomUUID, timingSafeEqual } from "node:crypto";
-import { Resend } from "resend";
+import { emailConfigured, sendVerificationEmail } from "./email";
 import { db } from "@/lib/db";
 import { ensure } from "@/lib/errors";
 import { otpDigest, rateLimit } from "@/lib/security";
 import { serial } from "./finance";
 export async function sendOtp(userId: string) {
   await rateLimit(`otp-send:${userId}`, 3, 900);
-  ensure(
-    process.env.RESEND_API_KEY && process.env.EMAIL_FROM,
-    "EMAIL_NOT_CONFIGURED",
-    503,
-  );
+  ensure(emailConfigured(), "EMAIL_NOT_CONFIGURED", 503);
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
   ensure(user.status === "PENDING" && user.email, "INVALID_REGISTRATION", 409);
   const id = randomUUID(),
@@ -38,13 +34,9 @@ export async function sendOtp(userId: string) {
       },
     });
   });
-  const sent = await new Resend(process.env.RESEND_API_KEY).emails.send({
-    from: process.env.EMAIL_FROM!,
-    to: user.email!,
-    subject: "Smart Canteen verification",
-    text: `Your verification code is ${code}. It expires in 5 minutes.`,
-  });
-  if (sent.error) {
+  try {
+    await sendVerificationEmail(user.email!, code);
+  } catch {
     await db.otpChallenge.update({
       where: { id },
       data: { consumedAt: new Date() },

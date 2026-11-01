@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { Redis } from "@upstash/redis";
 import { ensure } from "./errors";
+import { redisConnection } from "./redis";
 export const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 export const opaque = () => randomBytes(32).toString("base64url");
@@ -29,12 +30,7 @@ export function validSignature(
   return timingSafeEqual(expected, Buffer.from(signature, "hex"));
 }
 export async function rateLimit(key: string, limit = 20, seconds = 60) {
-  ensure(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
-    "RATE_LIMIT_NOT_CONFIGURED",
-    503,
-  );
-  const redis = Redis.fromEnv();
+  const redis = new Redis(redisConnection());
   const count = Number(
     await redis.eval(
       "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end; return n",
