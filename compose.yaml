@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: canteen
+      POSTGRES_PASSWORD: canteen_local_only
+      POSTGRES_DB: canteen
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["canteen_pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canteen"]
+      interval: 5s
+      retries: 10
+volumes:
+  canteen_pg:

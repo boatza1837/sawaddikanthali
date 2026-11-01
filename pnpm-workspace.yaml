@@ -1,0 +1,9 @@
+saveExact: true
+fetchTimeout: 600000
+fetchRetries: 1
+allowBuilds:
+  "@prisma/engines": true
+  prisma: true
+  esbuild: true
+  sharp: true
+  "@tailwindcss/oxide": true
