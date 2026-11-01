@@ -23,6 +23,9 @@ model User {
   tokens MemberToken[]
   cards RfidCard[]
   shifts StaffShift[]
+  cashierSales PosTransaction[] @relation("PosCashier")
+  paymentNotices MemberNotice[] @relation("NoticeMember")
+  cashierNotices MemberNotice[] @relation("NoticeCashier")
   adminMfa AdminMfa?
   adminGrants AdminGrant[]
 }
@@ -125,6 +128,7 @@ model MemberToken {
   expiresAt DateTime
   usedAt DateTime?
   user User @relation(fields:[userId],references:[id])
+  notices MemberNotice[]
   @@index([userId])
 }
 model PosTerminal {
@@ -133,6 +137,7 @@ model PosTerminal {
   active Boolean @default(true)
   locked Boolean @default(false)
   shifts StaffShift[]
+  sales PosTransaction[]
 }
 model StaffShift {
   id String @id @default(cuid())
@@ -147,7 +152,9 @@ model StaffShift {
 model PosTransaction {
   id String @id @default(cuid())
   ledgerId String @unique
-  shiftId String
+  shiftId String?
+  cashierId String?
+  terminalId String?
   amount Int
   memberId String
   refunded Int @default(0)
@@ -156,7 +163,10 @@ model PosTransaction {
   borrowed Int @default(0)
   overdraftApproved Boolean @default(false)
   ledger LedgerTransaction @relation(fields:[ledgerId],references:[id])
-  shift StaffShift @relation(fields:[shiftId],references:[id])
+  shift StaffShift? @relation(fields:[shiftId],references:[id])
+  cashier User? @relation("PosCashier",fields:[cashierId],references:[id])
+  terminal PosTerminal? @relation(fields:[terminalId],references:[id])
+  @@index([cashierId])
 }
 model RfidCard {
   id String @id @default(cuid())
@@ -192,4 +202,22 @@ model AdminGrant {
  expiresAt DateTime
  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
  @@index([userId,sessionHash])
+}
+
+model MemberNotice {
+ id String @id @default(cuid())
+ key String @unique
+ userId String
+ cashierId String
+ tokenId String
+ amount Int
+ balance Int
+ status String @default("INSUFFICIENT")
+ expiresAt DateTime
+ createdAt DateTime @default(now())
+ user User @relation("NoticeMember",fields:[userId],references:[id])
+ cashier User @relation("NoticeCashier",fields:[cashierId],references:[id])
+ token MemberToken @relation(fields:[tokenId],references:[id],onDelete:Cascade)
+ @@index([userId,expiresAt])
+ @@index([tokenId])
 }

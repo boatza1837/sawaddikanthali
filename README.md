@@ -30,7 +30,7 @@ PAYMENT_MODE=sandbox, development server only. Member creates a topup intent in 
 
 `pnpm exec tsx scripts/sandbox-settle.ts INTENT_ID 10000`
 
-This signs an explicit simulated THB 100 event and calls the webhook. The wallet changes only after server/database commit. Open staff POS, open counter-1 shift, enter total, confirm amount, scan the member QR with a keyboard-wedge scanner or decode/paste its opaque token, automatic charge if sufficient, or explicitly approve bounded credit/cancel if insufficient. There is no product cart. Fresh member QR expires in 60 seconds and is single-use. A new QR revokes previous live QR tokens.
+This signs an explicit simulated THB 100 event and calls the webhook. The wallet changes only after server/database commit. Open staff POS, use an active counter, enter total, confirm amount, scan the member QR with a keyboard-wedge scanner or decode/paste its opaque token, automatic charge if sufficient, or explicitly approve bounded credit/cancel if insufficient. There is no product cart. Fresh member QR expires in 60 seconds and is single-use. A new QR revokes previous live QR tokens.
 
 Never automatically recreate a charge with a new key after a network error. Use the same key and inspect staff history. POS camera QR scanning is implemented with local decoding and server-side member validation. Mobile home-screen installation is available with browser-specific support; financial requests always require network. Pending POS payloads are saved in sessionStorage for same-tab refresh recovery with the original key. Closing a tab/browser, clearing storage, switching device or account still requires staff-history/operator reconciliation.
 
@@ -44,7 +44,7 @@ Create canteen_test, set DATABASE_URL to it, run migrations. Then `$env:RUN_DB_T
 
 ## Current scope / release blockers
 
-Implemented: architecture/ERD/sequences, Next.js server routes, Google Auth.js configuration, email OTP server flow, contact collection, member wallet/history/QR, signed sandbox settlement, integer double-entry service, conditional balance debit with serializable retry, one-use tokens, manual amount POS, shifts, staff history, approved supervisor refund API, audit records, PostgreSQL schema/migrations/financial triggers and test suites.
+Implemented: architecture/ERD/sequences, Next.js server routes, Google Auth.js configuration, email OTP server flow, contact collection, member wallet/history/QR, signed sandbox settlement, integer double-entry service, conditional balance debit with serializable retry, one-use tokens, manual amount POS without shifts, staff history, approved supervisor refund API, audit records, PostgreSQL schema/migrations/financial triggers and test suites.
 
 Incomplete: production PromptPay adapter and settlement reconciliation, employee refund-request queue (supervisor approval form is available), settlement after intent expiry operational workflow, real-device camera acceptance checks, notifications/outbox, email delivery retry job, automatic pending-intent expiration worker, full reporting/export (daily credit report is implemented), hardware/card provisioning, storage/monitoring, production backup/restore and full accessibility/browser/e2e suite. Dynamic production QR therefore remains a launch blocker. A working local financial foundation does not mean all Phase 1 acceptance criteria are complete.
 

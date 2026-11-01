@@ -1,3 +1,4 @@
+import { posAttribution } from "@/lib/pos-attribution";
 import { adjustWallet } from "@/modules/adjustments";
 import { bangkokToday, bangkokDayBounds } from "@/lib/report-day";
 import { z } from "zod";
@@ -23,24 +24,23 @@ export const GET = api(async req => {
       db.posTransaction.aggregate({ where, _sum: { borrowed: true }, _count: true }),
       db.posTransaction.groupBy({ by: ["memberId"], where }),
       db.wallet.aggregate({ where: { balance: { lt: 0 } }, _sum: { balance: true } }),
-      db.posTransaction.findMany({ where, take: 51, ...(after ? { cursor: { id: after }, skip: 1 } : {}), orderBy: [{ ledger: { createdAt: "desc" } }, { id: "desc" }], include: { ledger: { select: { createdAt: true } }, shift: { select: { terminalId: true, user: { select: { name: true, email: true } } } } } })
+      db.posTransaction.findMany({ where, take: 51, ...(after ? { cursor: { id: after }, skip: 1 } : {}), orderBy: [{ ledger: { createdAt: "desc" } }, { id: "desc" }], include: { ledger: { select: { createdAt: true } }, cashier: { select: { name: true, email: true } }, shift: { select: { terminalId: true, user: { select: { name: true, email: true } } } } } })
     ]);
     const rows = page.slice(0, 50);
     const members = await db.user.findMany({ where: { id: { in: [...new Set(rows.map(row => row.memberId))] } }, select: { id: true, name: true, email: true, wallet: { select: { balance: true } } } });
     const byId = new Map(members.map(member => [member.id, member]));
-    return { day, borrowed: totals._sum.borrowed ?? 0, count: totals._count, borrowers: borrowers.length, outstanding: -(debt._sum.balance ?? 0), nextCursor: page.length > 50 ? rows.at(-1)!.id : null, rows: rows.map(row => { const m = byId.get(row.memberId); return { ...row, member: m ? { name: m.name, email: m.email, balance: m.wallet?.balance ?? 0 } : null }; }) };
+    return { day, borrowed: totals._sum.borrowed ?? 0, count: totals._count, borrowers: borrowers.length, outstanding: -(debt._sum.balance ?? 0), nextCursor: page.length > 50 ? rows.at(-1)!.id : null, rows: rows.map(row => { const m = byId.get(row.memberId); return { ...posAttribution(row), member: m ? { name: m.name, email: m.email, balance: m.wallet?.balance ?? 0 } : null }; }) };
   }
   if (path === "/api/admin/overview") {
-    const [members, wallet, sales, refunds, shifts, terminals, audit, transactions] = await Promise.all([
+    const [members, wallet, sales, refunds, terminals, audit, transactions] = await Promise.all([
       db.user.count(), db.wallet.aggregate({ _sum: { balance: true } }),
       db.posTransaction.aggregate({ _sum: { amount: true, refunded: true }, _count: true }),
       db.ledgerTransaction.count({ where: { kind: "REFUND" } }),
-      db.staffShift.findMany({ where: { closedAt: null }, include: { user: { select: { name: true, email: true } }, terminal: true } }),
       db.posTerminal.findMany({ orderBy: { id: "asc" } }),
       db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
-      db.posTransaction.findMany({ orderBy: { ledger: { createdAt: "desc" } }, take: 50, include: { ledger: { select: { createdAt: true } }, shift: { select: { user: { select: { name: true } }, terminalId: true } } } })
+      db.posTransaction.findMany({ orderBy: { ledger: { createdAt: "desc" } }, take: 50, include: { ledger: { select: { createdAt: true } }, cashier: { select: { name: true, email: true } }, shift: { select: { user: { select: { name: true, email: true } }, terminalId: true } } } })
     ]);
-    return { members, walletBalance: wallet._sum.balance ?? 0, grossSales: sales._sum.amount ?? 0, refunded: sales._sum.refunded ?? 0, saleCount: sales._count, refundCount: refunds, shifts, terminals, audit, transactions };
+    return { members, walletBalance: wallet._sum.balance ?? 0, grossSales: sales._sum.amount ?? 0, refunded: sales._sum.refunded ?? 0, saleCount: sales._count, refundCount: refunds, shifts: [], terminals, audit, transactions: transactions.map(posAttribution) };
   }
   if (path === "/api/admin/wallet") {
     const memberId = z.string().min(1).max(100).parse(new URL(req.url).searchParams.get("memberId"));
@@ -84,7 +84,6 @@ export const POST = api(async req => {
     const data = z.object({ id: z.string().regex(/^[a-zA-Z0-9_-]{1,60}$/), name: z.string().trim().min(1).max(100), active: z.boolean(), locked: z.boolean() }).strict().parse(await req.json());
     return serial(async tx => {
       await tx.posTerminal.upsert({ where: { id: data.id }, create: data, update: { name: data.name, active: data.active, locked: data.locked } });
-      if (!data.active || data.locked) await tx.staffShift.updateMany({ where: { terminalId: data.id, closedAt: null }, data: { closedAt: new Date() } });
       await tx.auditLog.create({ data: { actorId: user.id, action: "TERMINAL_UPDATED", targetId: data.id, detail: JSON.stringify(data) } });
       return { saved: true };
     });

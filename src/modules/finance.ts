@@ -83,7 +83,8 @@ export async function charge(input: {
   token: string;
   amount: number;
   key: string;
-  shiftId: string;
+  shiftId?: string;
+  terminalId?: string;
   allowNegative?: boolean;
 }) {
   const key = `purchase:${input.actorId}:${input.key}`;
@@ -91,7 +92,7 @@ export async function charge(input: {
     input.actorId,
     digest(input.token),
     input.amount,
-    input.shiftId,
+    input.shiftId ?? { terminalId: input.terminalId },
     ...(input.allowNegative ? [true] : []),
   ]);
   return serial(async (tx) => {
@@ -104,19 +105,12 @@ export async function charge(input: {
       "STAFF_REQUIRED",
       403,
     );
-    const shift = await tx.staffShift.findUnique({
-      where: { id: input.shiftId },
-      include: { terminal: true },
-    });
-    ensure(
-      shift &&
-        shift.userId === input.actorId &&
-        !shift.closedAt &&
-        shift.terminal.active &&
-        !shift.terminal.locked,
-      "INVALID_SHIFT",
-      409,
-    );
+    ensure(Boolean(input.shiftId) !== Boolean(input.terminalId), "INVALID_POS_CONTEXT", 400);
+    // Exact legacy payloads remain replayable after the shift UI is retired.
+    const legacy = input.shiftId ? await tx.staffShift.findUnique({ where: { id: input.shiftId } }) : null;
+    if (input.shiftId) ensure(legacy?.userId === input.actorId, "INVALID_SHIFT", 409);
+    const terminal = await tx.posTerminal.findUnique({ where: { id: legacy?.terminalId ?? input.terminalId! } });
+    ensure(terminal?.active && !terminal.locked, "TERMINAL_UNAVAILABLE", 409);
     const token = await tx.memberToken.findUnique({
       where: { digest: digest(input.token) },
       include: { user: { include: { wallet: true } } },
@@ -162,7 +156,9 @@ export async function charge(input: {
     await tx.posTransaction.create({
       data: {
         ledgerId: ledger.id,
-        shiftId: shift.id,
+        shiftId: input.shiftId ?? null,
+        cashierId: input.actorId,
+        terminalId: terminal.id,
         memberId: token.userId,
         amount,
         balanceBefore: wallet.balance,
@@ -171,6 +167,7 @@ export async function charge(input: {
         overdraftApproved: input.allowNegative === true,
       },
     });
+    await tx.memberNotice.updateMany({ where: { tokenId: token.id, status: "INSUFFICIENT" }, data: { status: "PAID" } });
     await tx.auditLog.create({
       data: { actorId: input.actorId, action: "PURCHASE", targetId: ledger.id },
     });

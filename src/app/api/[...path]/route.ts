@@ -16,8 +16,8 @@ export const dynamic = "force-dynamic";
 export const GET = api(async (req) => {
   const path = new URL(req.url).pathname;
   const user = await actor(req);
-  if (path === "/api/wallet")
-    return db.wallet.findUnique({
+  if (path === "/api/wallet") {
+    const wallet = await db.wallet.findUnique({
       where: { userId: user.id },
       include: {
         entries: {
@@ -27,6 +27,9 @@ export const GET = api(async (req) => {
         },
       },
     });
+    const notices = await db.memberNotice.findMany({ where: { userId: user.id, status: "INSUFFICIENT", expiresAt: { gt: new Date() }, token: { usedAt: null, expiresAt: { gt: new Date() } } }, orderBy: { createdAt: "desc" }, take: 3, select: { id: true, amount: true, balance: true, expiresAt: true } });
+    return wallet ? { ...wallet, notices } : null;
+  }
   if (path.startsWith("/api/topups/")) {
     const intent = await db.topupIntent.findFirst({
       where: { id: path.split("/").pop(), wallet: { userId: user.id } },
@@ -42,16 +45,16 @@ export const GET = api(async (req) => {
   }
   if (path === "/api/pos/state") {
     ensure(["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(user.role), "FORBIDDEN", 403);
-    const [shift, history] = await Promise.all([
-      db.staffShift.findFirst({ where: { userId: user.id, closedAt: null }, include: { terminal: true } }),
-      db.posTransaction.findMany({ where: { shift: { userId: user.id } }, take: 30, orderBy: { ledger: { createdAt: "desc" } }, include: { ledger: true } })
+    const [terminals, history] = await Promise.all([
+      db.posTerminal.findMany({ orderBy: { id: "asc" }, select: { id: true, name: true, active: true, locked: true } }),
+      db.posTransaction.findMany({ where: { OR: [{ cashierId: user.id }, { cashierId: null, shift: { userId: user.id } }] }, take: 30, orderBy: { ledger: { createdAt: "desc" } }, include: { ledger: true } })
     ]);
-    return { shift, history };
+    return { terminals, history };
   }
   if (path === "/api/pos/history") {
     ensure(["EMPLOYEE", "SUPERVISOR", "ADMIN"].includes(user.role), "FORBIDDEN", 403);
     return db.posTransaction.findMany({
-      where: { shift: { userId: user.id } },
+      where: { OR: [{ cashierId: user.id }, { cashierId: null, shift: { userId: user.id } }] },
       take: 30,
       orderBy: { ledger: { createdAt: "desc" } },
       include: { ledger: true },
@@ -114,27 +117,25 @@ export const POST = api(async (req) => {
     return createTopup(user.id, data.amount, data.key);
   }
   if (path === "/api/pos/identify") {
-    const { token } = z
-      .object({ token: z.string().min(20).max(100) })
+    const { token, amount: requestedAmount } = z
+      .object({ token: z.string().min(20).max(100), amount: amount.optional() })
       .strict()
       .parse(body);
-    const found = await db.memberToken.findUnique({
-      where: { digest: digest(token) },
-      include: { user: { include: { wallet: true } } },
+    return serial(async tx => {
+      const found = await tx.memberToken.findUnique({ where: { digest: digest(token) }, include: { user: { include: { wallet: true } } } });
+      ensure(found && !found.usedAt && found.expiresAt > new Date() && found.user.status === "ACTIVE" && found.user.wallet, "INVALID_MEMBER_TOKEN", 409);
+      const balance = found.user.wallet.balance;
+      if (requestedAmount && balance < requestedAmount) {
+        const noticeKey = digest(JSON.stringify([found.id, requestedAmount, user.id]));
+        await tx.memberNotice.upsert({ where: { key: noticeKey }, create: { key: noticeKey, userId: found.userId, cashierId: user.id, tokenId: found.id, amount: requestedAmount, balance, expiresAt: found.expiresAt }, update: { balance, status: "INSUFFICIENT", expiresAt: found.expiresAt } });
+      }
+      return { name: found.user.name, memberId: found.userId, balance };
     });
-    ensure(
-      found &&
-        !found.usedAt &&
-        found.expiresAt > new Date() &&
-        found.user.status === "ACTIVE",
-      "INVALID_MEMBER_TOKEN",
-      409,
-    );
-    return {
-      name: found.user.name,
-      memberId: found.userId,
-      balance: found.user.wallet?.balance,
-    };
+  }
+  if (path === "/api/pos/cancel") {
+    const data = z.object({ token: z.string().min(20).max(100), amount }).strict().parse(body);
+    await db.memberNotice.updateMany({ where: { cashierId: user.id, token: { digest: digest(data.token) }, amount: data.amount, status: "INSUFFICIENT" }, data: { status: "CANCELLED" } });
+    return { cancelled: true };
   }
   if (path === "/api/pos/charge") {
     const data = z
@@ -142,7 +143,8 @@ export const POST = api(async (req) => {
         token: z.string().min(20).max(100),
         amount,
         key,
-        shiftId: z.string().min(1),
+        shiftId: z.string().min(1).max(100).optional(),
+        terminalId: z.string().min(1).max(100).optional(),
         allowNegative: z.boolean().optional(),
       })
       .strict()
@@ -161,72 +163,6 @@ export const POST = api(async (req) => {
       .parse(body);
     return refund({ ...data, actorId: user.id });
   }
-  if (path === "/api/pos/shift") {
-    const data = z
-      .object({
-        terminalId: z.string().min(1).max(100),
-        action: z.enum(["open", "close"]),
-      })
-      .strict()
-      .parse(body);
-    return serial(async (tx) => {
-      const terminal = await tx.posTerminal.findUnique({
-        where: { id: data.terminalId },
-      });
-      ensure(terminal, "TERMINAL_UNAVAILABLE", 409);
-      if (data.action === "open") ensure(terminal.active && !terminal.locked, "TERMINAL_UNAVAILABLE", 409);
-      const open = await tx.staffShift.findFirst({
-        where: { terminalId: terminal.id, closedAt: null },
-      });
-      if (data.action === "close") {
-        ensure(open?.userId === user.id, "INVALID_SHIFT", 409);
-        await tx.staffShift.update({
-          where: { id: open.id },
-          data: { closedAt: new Date() },
-        });
-        await tx.auditLog.create({
-          data: { actorId: user.id, action: "SHIFT_CLOSE", targetId: open.id },
-        });
-        return { closed: true };
-      }
-      if (open) {
-        ensure(open.userId === user.id, "TERMINAL_IN_USE", 409);
-        return open;
-      }
-      const shift = await tx.staffShift.create({
-        data: { userId: user.id, terminalId: terminal.id },
-      });
-      await tx.auditLog.create({
-        data: { actorId: user.id, action: "SHIFT_OPEN", targetId: shift.id },
-      });
-      return shift;
-    });
-  }
-  if (path === "/api/pos/lock") {
-    const { shiftId } = z
-      .object({ shiftId: z.string().min(1) })
-      .strict()
-      .parse(body);
-    return serial(async (tx) => {
-      const shift = await tx.staffShift.findUnique({ where: { id: shiftId } });
-      ensure(
-        shift?.userId === user.id && !shift.closedAt,
-        "INVALID_SHIFT",
-        409,
-      );
-      await tx.staffShift.update({
-        where: { id: shift.id },
-        data: { closedAt: new Date() },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorId: user.id,
-          action: "TERMINAL_LOCK",
-          targetId: shift.terminalId,
-        },
-      });
-      return { locked: true };
-    });
-  }
+  if (path === "/api/pos/shift" || path === "/api/pos/lock") ensure(false, "SHIFT_SYSTEM_REMOVED", 410);
   ensure(false, "NOT_FOUND", 404);
 });

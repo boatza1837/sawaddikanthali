@@ -2,9 +2,12 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import QRCode from "qrcode";
 import { Button } from "./ui/button";
+import { MAX_OVERDRAFT } from "@/lib/credit";
 import { money, satang } from "@/lib/money";
 
+type PaymentNotice = { id:string; amount:number; balance:number; expiresAt:string };
 type WalletData = {
+  notices?: PaymentNotice[];
   balance: number;
   entries: {
     id: string;
@@ -55,12 +58,14 @@ export function Wallet({
   const receiptDialog = useRef<HTMLDialogElement | null>(null);
   const [receipts, setReceipts] = useState<WalletData["entries"]>([]);
   const currentReceipt = receipts[0];
+  const [paymentNotice,setPaymentNotice] = useState<PaymentNotice|null>(null);
+  const seenNotices = useRef(new Set<string>());
   useEffect(() => {
     const dialog = receiptDialog.current;
-    if (currentReceipt && !dialog?.open) dialog?.showModal();
-    if (!currentReceipt && dialog?.open) dialog.close();
-  }, [currentReceipt]);
-  const dismissReceipt = () => setReceipts(current => current.slice(1));
+    if ((currentReceipt || paymentNotice) && !dialog?.open) dialog?.showModal();
+    if (!currentReceipt && !paymentNotice && dialog?.open) dialog.close();
+  }, [currentReceipt,paymentNotice]);
+  const dismissReceipt = () => { if(currentReceipt) setReceipts(current => current.slice(1)); else setPaymentNotice(null); };
 
   // Refresh wallet balance & transactions
   const refresh = useCallback(async () => {
@@ -72,10 +77,14 @@ export function Wallet({
       const d = await r.json();
       if (!r.ok) throw Error(d.error);
       const data = d as WalletData;
+      const notices=data?.notices??[];
+      const newest=notices[0];
+      if(newest&&!seenNotices.current.has(newest.id)){seenNotices.current.add(newest.id);setPaymentNotice(newest);}
+      else setPaymentNotice(current=>current&&notices.some(notice=>notice.id===current.id)?current:null);
       if (data?.entries) {
         if (seenEntries.current) {
           const paid = data.entries.filter(entry => !seenEntries.current!.has(entry.id) && entry.side === "DEBIT" && entry.transaction.kind === "PURCHASE").reverse();
-          if (paid.length) { setReceipts(current => [...current, ...paid]); setQr(""); setExpires(""); }
+          if (paid.length) { setReceipts(current => [...current, ...paid]); setPaymentNotice(null); setQr(""); setExpires(""); }
         } else seenEntries.current = new Set();
         data.entries.forEach(entry => seenEntries.current!.add(entry.id));
       }
@@ -181,8 +190,9 @@ export function Wallet({
 
   return (
     <>
-      <dialog ref={receiptDialog} className="customer-receipt" aria-labelledby="receipt-title" onCancel={event => { event.preventDefault(); dismissReceipt(); }}>
+      <dialog ref={receiptDialog} className={`customer-receipt${!currentReceipt && paymentNotice ? " customer-shortfall" : ""}`} aria-labelledby={currentReceipt?"receipt-title":"shortfall-title"} onCancel={event => { event.preventDefault(); dismissReceipt(); }}>
         {currentReceipt && <><span className="badge">ชำระสำเร็จ</span><h2 id="receipt-title">หักเงินจาก Wallet แล้ว</h2><strong className="customer-receipt-amount">{money(currentReceipt.amount)}</strong><p>ยอดคงเหลือปัจจุบัน <strong style={{color: (wallet?.balance ?? 0) < 0 ? "#b42318" : "#047857"}}>{money(wallet?.balance ?? 0)}</strong></p>{(wallet?.balance ?? 0) < 0 && <p>ยอดติดลบคือเงินที่ยืมใช้ กรุณาชำระคืนเมื่อเติมเงิน</p>}<code>{currentReceipt.transaction.id}</code><Button onClick={dismissReceipt}>{receipts.length > 1 ? "ดูรายการถัดไป" : "รับทราบ"}</Button></>}
+        {!currentReceipt && paymentNotice && <><span className="badge">แจ้งจากจุดรับชำระ</span><h2 id="shortfall-title">เงินไม่พอ</h2><strong className="customer-receipt-amount">ขาด {money(paymentNotice.amount-paymentNotice.balance)}</strong><p>ยอดซื้อ <strong>{money(paymentNotice.amount)}</strong></p><p>เงินใน Wallet ตอนตรวจสอบ <strong>{money(paymentNotice.balance)}</strong></p><div className="shortfall-after">หากพนักงานกดผ่าน ยอดจะเป็น <strong>{money(paymentNotice.balance-paymentNotice.amount)}</strong></div><p>{paymentNotice.balance-paymentNotice.amount < -MAX_OVERDRAFT ? "เกินวงเงินติดลบ 50 บาท ไม่สามารถกดผ่านได้ กรุณาติดต่อพนักงาน" : "รอพนักงานเลือกผ่านแบบติดลบ หรือยกเลิกรายการ ยังไม่มีการหักเงินจากข้อความแจ้งนี้"}</p><Button variant="danger" onClick={dismissReceipt}>รับทราบ</Button></>}
       </dialog>
       {/* Formal Header: User identity & Logout Button */}
       <div

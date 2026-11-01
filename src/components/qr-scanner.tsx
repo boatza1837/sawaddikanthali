@@ -136,7 +136,7 @@ export function QrScanner({ disabled, onScan, openRequest = 0 }: {
         <Button type="button" variant="outline" onClick={() => setFacing(current => current === "environment" ? "user" : "environment")}>สลับกล้องหน้า / หลัง</Button>
       </div>
     </>}
-    {disabled && <p className="muted">เปิดกะและยืนยันยอดก่อนจึงจะสแกนได้ หากมีรายการค้างให้ตรวจสอบรายการเดิมก่อน</p>}
+    {disabled && <p className="muted">ยืนยันยอดก่อนจึงจะสแกนได้ หากมีรายการค้างให้ตรวจสอบรายการเดิมก่อน</p>}
     {message && <p role="status" className="qr-camera-message">{message}</p>}
     <small>อ่านภาพในเครื่อง ไม่บันทึกหรือส่งภาพกล้องขึ้นเซิร์ฟเวอร์ เมื่อเงินพอ สแกนแล้วตัดยอดที่ยืนยันไว้ทันที</small>
   </div>;

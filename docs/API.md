@@ -13,15 +13,15 @@ All responses are JSON. Money is integer satang, THB. Session mutations require 
 | POST     | /api/topups                | {amount: int 1..1000000,key: UUID} -> sandbox intent |
 | GET      | /api/topups/:id            | Own intent; derives EXPIRED status from expiry       |
 | POST     | /api/webhooks/sandbox      | Raw signed JSON; x-sandbox-signature hex HMAC SHA256 |
-| POST     | /api/pos/shift             | Staff; {terminalId,action: open or close}            |
+| POST     | /api/pos/shift             | Retired: returns 410 SHIFT_SYSTEM_REMOVED            |
 | POST     | /api/pos/identify          | Staff; {token} -> name, memberId, balance preview    |
-| POST     | /api/pos/charge            | Staff; {token,amount,key: UUID,shiftId}              |
+| POST     | /api/pos/charge            | Staff; {token,amount,key: UUID,terminalId}              |
 | POST     | /api/pos/refund            | Supervisor; {purchaseId,amount,key: UUID,reason}     |
-| POST     | /api/pos/lock              | Own open shift; {shiftId}; closes session's shift    |
+| POST     | /api/pos/lock              | Retired: returns 410 SHIFT_SYSTEM_REMOVED    |
 | GET      | /api/pos/history           | Staff; own latest 30 transactions                    |
 | GET      | /api/admin/overview        | ADMIN + recent session-bound TOTP MFA                 |
 
-Charge reply includes transactionId. Idempotent replay returns the original transactionId and replayed=true; do not assume a second charge. A key used with changed amount, shift, token or actor conflicts. Token is consumed only during successful charge. Insufficient balance does not consume it. Refund approval is the supervisor call itself; no employee proposal workflow exists yet. Terminal lock closes the current shift and resets the POS, it is not an independent terminal-device authentication lock.
+Charge reply includes transactionId. Idempotent replay returns the original transactionId and replayed=true; do not assume a second charge. A key used with changed amount, terminal context, token or actor conflicts. Token is consumed only during successful charge. Insufficient balance does not consume it. Refund approval is the supervisor call itself; no employee proposal workflow exists yet. Terminal locking is an Admin operation and blocks new charges. There is no exclusive cashier ownership or shift lock.
 
 Webhook sandbox event: {eventId,reference: intentId,paymentRef,amount,currency: THB,status: PAID}. Event ID plus digest deduplication and unique payment reference prevent credit twice. Signed amount/reference/currency must match; expired payments are rejected for operator investigation. Production must add signed provider timestamps/replay window, provider-specific verification, stored failed events, bounded ingress sizes/rate limits and settlement reconciliation. No unknown-card API pretends RFID is functional.
 
@@ -29,8 +29,10 @@ Webhook sandbox event: {eventId,reference: intentId,paymentRef,amount,currency: 
 
 GET /api/admin/mfa returns enrollment/step-up status for an ACTIVE ADMIN. POST /api/admin/mfa/enroll returns a private setup key/otpauth URI only before first enrollment (10-minute session-bound setup). POST /api/admin/mfa/verify {code} activates/validates TOTP and sets a 15-minute session-bound grant.
 
-All routes below require that grant: GET /api/admin/members?q= searches at most 100 accounts; POST /api/admin/member {id,role,status,reason} changes non-admin registered accounts and revokes their sessions; POST /api/admin/terminal {id,name,active,locked} creates/updates a terminal and closes shifts when locked/inactive. No ADMIN privilege grant, arbitrary wallet adjustment or ledger mutation API. GET /api/pos/state returns only the staff member own open shift and recent history.
+All routes below require that grant: GET /api/admin/members?q= searches at most 100 accounts; POST /api/admin/member {id,role,status,reason} changes non-admin registered accounts and revokes their sessions; POST /api/admin/terminal {id,name,active,locked} creates/updates a terminal and blocks charges when locked/inactive. No public ADMIN privilege grant or ledger mutation API; audited wallet adjustments require independent Admin MFA. GET /api/pos/state returns available terminals and the authenticated cashier own recent history.
 
 Charge now accepts optional allowNegative:boolean. Omitted/false preserves nonnegative-only behavior and legacy request fingerprints. True requires explicit cashier confirmation and cannot take a member below -5000 satang. GET /api/admin/debt?date=YYYY-MM-DD&after=optional-sale-id requires recent Admin MFA, uses Thai calendar dates and returns aggregate daily borrowing, current debt and paginated details.
 
 GET /api/admin/wallet?memberId= returns the selected member balance for the adjustment preview. POST /api/admin/adjust {memberId,direction:CREDIT|DEBIT,amount:int 1..1000000,reason:5..500 chars,key:UUID,expectedBalance:int} requires ACTIVE ADMIN plus recent independent MFA and exact Origin. Financial actor always comes from the session, never the body. Changed balance returns WALLET_CHANGED without posting. Manual debits cannot make the wallet negative. ADJUSTMENT entries are not bank topups or sales.
+
+POS shift/lock endpoints are retired (410); no terminal ownership conflict is used. New charges use terminalId; optional legacy shiftId is accepted only for exact old pending-request recovery, never both context types. POST /api/pos/identify accepts {token,amount?}; an insufficient balance creates a private expiring member notice when amount is supplied. POST /api/pos/cancel {token,amount} cancels only the current cashier matching informational notices, without a debit. GET /api/wallet includes only the authenticated member active notices.

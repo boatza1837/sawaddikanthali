@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     user: { findUnique: vi.fn() },
     wallet: { findUnique: vi.fn() },
+    memberNotice: { findMany: vi.fn() },
     topupIntent: { findFirst: vi.fn() },
   },
 }));
@@ -20,6 +21,7 @@ import { GET } from "@/app/api/[...path]/route";
 import { sandboxOnly } from "@/modules/payments";
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(db.memberNotice.findMany).mockResolvedValue([]);
   vi.mocked(auth).mockResolvedValue({ user: { id: "member-a" } } as never);
   vi.mocked(db.user.findUnique).mockResolvedValue({
     id: "member-a",
