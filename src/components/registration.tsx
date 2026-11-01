@@ -2,21 +2,26 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "./ui/button";
+import { normalizeContactPhone } from "@/lib/phone";
 
 interface RegistrationProps {
   email?: string;
+  initialStep?: "send" | "verify" | "phone";
+  initialSeconds?: number;
 }
 
-export function Registration({ email }: RegistrationProps = {}) {
+export function Registration({ email, initialStep = "send", initialSeconds = 0 }: RegistrationProps = {}) {
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<
     "info" | "success" | "error" | "warning"
   >("info");
-  const [seconds, setSeconds] = useState(0);
+  const [seconds, setSeconds] = useState(initialSeconds);
   const [busy, setBusy] = useState(false);
   const [activeStep, setActiveStep] = useState<"send" | "verify" | "phone">(
-    "verify",
+    initialStep,
   );
+  const phoneRef = useRef<HTMLDivElement | null>(null);
+  const inFlight = useRef(false);
   const [, startTransition] = useTransition();
 
   // 6-digit segmented OTP state for instant input ("โหลดรหัสก่อนถ้าเน็ตกาก")
@@ -98,6 +103,8 @@ export function Registration({ email }: RegistrationProps = {}) {
   }
 
   async function submit(action: string, data: unknown) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setStatus("");
     try {
@@ -123,6 +130,7 @@ export function Registration({ email }: RegistrationProps = {}) {
         setStatus("✨ ส่งรหัส OTP ไปที่อีเมลแล้ว กรุณาตรวจกล่องจดหมาย");
         setStatusType("success");
         setSeconds(60);
+        setDigits(["", "", "", "", "", ""]);
         setActiveStep("verify");
         setTimeout(() => inputRefs.current[0]?.focus(), 100);
       } else if (action === "verify") {
@@ -131,6 +139,8 @@ export function Registration({ email }: RegistrationProps = {}) {
         );
         setStatusType("success");
         setActiveStep("phone");
+        setSeconds(0);
+        setTimeout(() => { phoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); document.getElementById("phone")?.focus(); }, 100);
       } else {
         setStatus("✨ สมัครสมาชิกสำเร็จ กำลังเข้าสู่ระบบ Wallet...");
         setStatusType("success");
@@ -158,6 +168,7 @@ export function Registration({ email }: RegistrationProps = {}) {
           : "error",
       );
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -251,7 +262,7 @@ export function Registration({ email }: RegistrationProps = {}) {
               color: activeStep === "send" ? "#065f46" : "#64748b",
             }}
           >
-            ✉️ ส่ง OTP
+            ✉️ ขอรหัส OTP
           </div>
         </div>
 
@@ -283,7 +294,7 @@ export function Registration({ email }: RegistrationProps = {}) {
               color: activeStep === "verify" ? "#065f46" : "#64748b",
             }}
           >
-            🔐 กรอกรหัส
+            🔐 ยืนยัน OTP
           </div>
         </div>
 
@@ -319,6 +330,53 @@ export function Registration({ email }: RegistrationProps = {}) {
           </div>
         </div>
       </div>
+
+      <div className="notice" role="note" style={{ background: "#f0f9f4", borderColor: "#cce5d5" }}>
+        <strong>{activeStep === "send" ? "เริ่มตรงนี้: กดปุ่ม «ขอรหัส OTP ทางอีเมล» ก่อน" : activeStep === "verify" ? "ขั้นตอนถัดไป: กรอกรหัส 6 หลัก แล้วกด «ยืนยัน OTP และไปกรอกเบอร์»" : "ยืนยันอีเมลแล้ว ✓ กรอกเบอร์ติดต่อเพื่อเปิด Wallet"}</strong>
+        <p style={{ marginBottom: 0, fontSize: 14 }}>{activeStep === "send" ? "ระบบยังไม่ได้ส่งรหัสอัตโนมัติ เมื่อกดขอรหัสแล้ว ให้ตรวจอีเมลรวมถึงโฟลเดอร์สแปม" : activeStep === "verify" ? "กรอกครบอย่างเดียวยังไม่ยืนยัน ต้องกดปุ่มยืนยันก่อนจึงจะกรอกเบอร์ติดต่อได้" : "เบอร์นี้ใช้สำหรับติดต่อ ยังไม่มีการส่ง SMS เพื่อยืนยัน"}</p>
+      </div>
+      {/* Feedback & Status Banner */}
+      {status && (
+        <div
+          role="status"
+          style={{
+            padding: "14px 18px",
+            borderRadius: 14,
+            fontSize: 14,
+            fontWeight: 500,
+            lineHeight: 1.6,
+            background:
+              statusType === "success"
+                ? "#ecfdf5"
+                : statusType === "warning"
+                  ? "#fffbeb"
+                  : statusType === "error"
+                    ? "#fef2f2"
+                    : "#f0f9ff",
+            color:
+              statusType === "success"
+                ? "#065f46"
+                : statusType === "warning"
+                  ? "#92400e"
+                  : statusType === "error"
+                    ? "#991b1b"
+                    : "#0369a1",
+            border: `1px solid ${
+              statusType === "success"
+                ? "#a7f3d0"
+                : statusType === "warning"
+                  ? "#fde68a"
+                  : statusType === "error"
+                    ? "#fecaca"
+                    : "#bae6fd"
+            }`,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+          }}
+        >
+          {status}
+        </div>
+      )}
+
 
       {/* Network / Skeleton Feedback while busy */}
       {busy && (
@@ -367,7 +425,7 @@ export function Registration({ email }: RegistrationProps = {}) {
         >
           <div>
             <div style={{ fontWeight: 650, fontSize: 15, color: "#14243b" }}>
-              ส่งรหัส OTP ไปยังอีเมล Google
+              1. ขอรหัส OTP ทางอีเมล
             </div>
             <div style={{ fontSize: 13, color: "#617080", marginTop: 2 }}>
               {email ? (
@@ -389,22 +447,22 @@ export function Registration({ email }: RegistrationProps = {}) {
             }}
           >
             <Button
-              disabled={busy || seconds > 0}
+              disabled={busy || seconds > 0 || activeStep === "phone"}
               onClick={() => submit("send", {})}
               style={{ minHeight: 44, padding: "8px 18px" }}
             >
               {seconds ? (
-                `ขอใหม่ (${seconds}s)`
+                `ขอรหัสใหม่ได้ใน ${seconds} วินาที`
               ) : (
                 <>
                   <span className="sparkle-icon" style={{ marginRight: 6 }}>
                     ✨
                   </span>
-                  ส่ง OTP ไปอีเมล
+                  {activeStep === "phone" ? "ยืนยันอีเมลแล้ว ✓" : activeStep === "send" ? "ขอรหัส OTP ทางอีเมล" : "ขอรหัส OTP ใหม่"}
                 </>
               )}
             </Button>
-            <a
+            {activeStep !== "send" && <a
               href="https://mail.google.com"
               target="_blank"
               rel="noreferrer"
@@ -417,7 +475,7 @@ export function Registration({ email }: RegistrationProps = {}) {
               }}
             >
               เปิด Gmail ↗
-            </a>
+            </a>}
           </div>
         </div>
       </div>
@@ -442,7 +500,7 @@ export function Registration({ email }: RegistrationProps = {}) {
           }}
         >
           <label
-            htmlFor="code"
+            htmlFor="otp-digit-0"
             style={{
               margin: 0,
               fontSize: 15,
@@ -450,18 +508,22 @@ export function Registration({ email }: RegistrationProps = {}) {
               color: "#065f46",
             }}
           >
-            ✨ กรอกรหัสยืนยัน OTP 6 หลัก
+            2. กรอกรหัส แล้วกดยืนยัน OTP
           </label>
           <span style={{ fontSize: 12, color: "#059669", fontWeight: 600 }}>
             (วางรหัสได้ทั้ง 6 หลัก)
           </span>
         </div>
 
+        {activeStep === "send" && <p className="muted">🔒 กดขอรหัสในขั้นตอนที่ 1 ก่อน ช่องกรอกรหัสจึงจะเปิดให้ใช้งาน</p>}
+        {activeStep === "phone" && <p style={{color:"#047857"}}>✓ ยืนยัน OTP สำเร็จแล้ว ไปกรอกเบอร์ติดต่อด้านล่างได้เลย</p>}
         {/* Fast Segmented Digit Inputs (6 boxes) */}
         <div className="otp-box-grid" onPaste={handlePaste}>
           {digits.map((digit, idx) => (
             <input
               key={idx}
+              id={`otp-digit-${idx}`}
+              autoComplete={idx === 0 ? "one-time-code" : "off"}
               ref={(el) => {
                 inputRefs.current[idx] = el;
               }}
@@ -470,7 +532,7 @@ export function Registration({ email }: RegistrationProps = {}) {
               pattern="[0-9]*"
               maxLength={6}
               value={digit}
-              disabled={busy}
+              disabled={busy || activeStep !== "verify"}
               aria-label={`OTP Digit ${idx + 1}`}
               onChange={(e) => handleDigitChange(idx, e.target.value)}
               onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -504,16 +566,16 @@ export function Registration({ email }: RegistrationProps = {}) {
             })}
           />
           <Button
-            disabled={busy || digits.join("").length !== 6}
+            disabled={busy || activeStep !== "verify" || digits.join("").length !== 6}
             style={{ width: "100%", minHeight: 46 }}
           >
-            {busy ? "กำลังตรวจสอบ..." : "ยืนยัน OTP 💫"}
+            {busy ? "กำลังตรวจสอบ..." : activeStep === "phone" ? "ยืนยัน OTP แล้ว ✓" : "ยืนยัน OTP และไปกรอกเบอร์ →"}
           </Button>
         </form>
       </div>
 
       {/* Action 3: Phone Number Collection (Required for Wallet Opening) */}
-      <div
+      <div ref={phoneRef}
         style={{
           background: activeStep === "phone" ? "#ffffff" : "#fbfbfb",
           border:
@@ -531,31 +593,36 @@ export function Registration({ email }: RegistrationProps = {}) {
             marginBottom: 6,
           }}
         >
-          📱 ข้อมูลเบอร์โทรศัพท์ติดต่อ
+          3. กรอกเบอร์ติดต่อ
         </div>
         <p style={{ margin: "0 0 12px", fontSize: 13, color: "#617080" }}>
-          ใช้สำหรับติดต่อและยังไม่ผ่านการยืนยัน SMS (รูปแบบ E.164 เช่น
-          +66812345678)
+          ใช้สำหรับติดต่อและยังไม่ผ่านการยืนยัน SMS (เช่น 0812345678)
         </p>
+        {activeStep !== "phone" && <p className="notice" style={{fontSize:14}}>🔒 ขั้นตอนนี้ยังไม่เปิดใช้งาน กรุณากรอกรหัสแล้วกด «ยืนยัน OTP และไปกรอกเบอร์» ด้านบนก่อน</p>}
         <form
-          onSubmit={phoneForm.handleSubmit((v) =>
-            submit("complete", { phone: v.phone }),
-          )}
+          onSubmit={phoneForm.handleSubmit((v) => {
+            if (activeStep !== "phone") return;
+            const phone = normalizeContactPhone(v.phone);
+            if (phone) submit("complete", { phone });
+          })}
         >
           <input
             id="phone"
             type="tel"
             autoComplete="tel"
-            placeholder="+66812345678"
-            disabled={busy}
+            placeholder="0812345678"
+            aria-label="เบอร์ติดต่อ"
+            aria-describedby="phone-error"
+            disabled={busy || activeStep !== "phone"}
             style={{ margin: "0 0 12px" }}
             {...phoneForm.register("phone", {
               required: true,
-              pattern: /^\+[1-9]\d{7,14}$/,
+              validate: (value) => Boolean(normalizeContactPhone(value)) || "กรอกเบอร์ให้ถูกต้อง เช่น 0812345678",
             })}
           />
+          {phoneForm.formState.errors.phone && <p id="phone-error" role="alert" style={{color:"#a12626"}}>กรอกเบอร์ให้ถูกต้อง เช่น 0812345678</p>}
           <Button
-            disabled={busy}
+            disabled={busy || activeStep !== "phone"}
             variant={activeStep === "phone" ? "default" : "outline"}
             style={{ width: "100%", minHeight: 46 }}
           >
@@ -564,107 +631,6 @@ export function Registration({ email }: RegistrationProps = {}) {
         </form>
       </div>
 
-      {/* Feedback & Status Banner */}
-      {status && (
-        <div
-          role="status"
-          style={{
-            padding: "14px 18px",
-            borderRadius: 14,
-            fontSize: 14,
-            fontWeight: 500,
-            lineHeight: 1.6,
-            background:
-              statusType === "success"
-                ? "#ecfdf5"
-                : statusType === "warning"
-                  ? "#fffbeb"
-                  : statusType === "error"
-                    ? "#fef2f2"
-                    : "#f0f9ff",
-            color:
-              statusType === "success"
-                ? "#065f46"
-                : statusType === "warning"
-                  ? "#92400e"
-                  : statusType === "error"
-                    ? "#991b1b"
-                    : "#0369a1",
-            border: `1px solid ${
-              statusType === "success"
-                ? "#a7f3d0"
-                : statusType === "warning"
-                  ? "#fde68a"
-                  : statusType === "error"
-                    ? "#fecaca"
-                    : "#bae6fd"
-            }`,
-            boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
-          }}
-        >
-          {status}
-        </div>
-      )}
-
-      {/* Skeleton Loading Card Demo for slow connections / data saver ("โหลดแบบ สเกลลิตันนะ") */}
-      <div
-        style={{
-          marginTop: 24,
-          paddingTop: 16,
-          borderTop: "1px dashed #e2e8f0",
-        }}
-      >
-        <details style={{ fontSize: 13, color: "#64748b" }}>
-          <summary
-            style={{ cursor: "pointer", fontWeight: 600, color: "#047857" }}
-          >
-            ✨ ตรวจสอบโครงสร้าง Skeleton Loader (จำลองเมื่อเน็ตกาก)
-          </summary>
-          <div
-            style={{
-              marginTop: 14,
-              padding: 16,
-              background: "#f8fafc",
-              borderRadius: 14,
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <div
-              className="skeleton-shimmer"
-              style={{ width: "40%", height: 16, marginBottom: 12 }}
-            />
-            <div
-              className="skeleton-shimmer"
-              style={{ width: "80%", height: 12, marginBottom: 8 }}
-            />
-            <div
-              className="skeleton-shimmer"
-              style={{ width: "65%", height: 12, marginBottom: 16 }}
-            />
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(6, 1fr)",
-                gap: 8,
-                maxWidth: 320,
-                marginBottom: 16,
-              }}
-            >
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="skeleton-shimmer"
-                  style={{ aspectRatio: "1/1", borderRadius: 10 }}
-                />
-              ))}
-            </div>
-            <div
-              className="skeleton-shimmer"
-              style={{ width: "100%", height: 42, borderRadius: 10 }}
-            />
-          </div>
-        </details>
-      </div>
     </section>
   );
 }

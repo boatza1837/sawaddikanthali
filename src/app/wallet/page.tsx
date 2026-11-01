@@ -17,13 +17,19 @@ export default async function WalletPage() {
   if (user.status === "SUSPENDED")
     return <h1>บัญชีถูกระงับ กรุณาติดต่อผู้ดูแล</h1>;
 
+  const challenge = user.status === "PENDING" && !user.otpVerifiedAt
+    ? await db.otpChallenge.findFirst({ where: { userId: user.id, consumedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: 5 } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } })
+    : null;
+  const initialStep = user.otpVerifiedAt ? "phone" : challenge ? "verify" : "send";
+  const initialSeconds = challenge ? Math.max(0, Math.ceil((challenge.createdAt.getTime() + 60000 - Date.now()) / 1000)) : 0;
+
   async function handleSignOut() {
     "use server";
     await signOut({ redirectTo: "/" });
   }
 
   return user.status === "PENDING" ? (
-    <Registration email={user.email ?? undefined} />
+    <Registration email={user.email ?? undefined} initialStep={initialStep} initialSeconds={initialSeconds} />
   ) : (
     <Wallet
       phone={user.phone}
