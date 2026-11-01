@@ -1,16 +1,13 @@
 import { auth, signIn, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { registrationReady } from "@/lib/readiness";
 export default async function Home() {
-  const configured = Boolean(
-    process.env.AUTH_GOOGLE_ID &&
-    process.env.AUTH_GOOGLE_SECRET &&
-    process.env.AUTH_SECRET,
-  );
+  const configured = registrationReady();
   const session = configured ? await auth() : null;
   return (
     <>
-      <span className="badge">Phase 1 · Development foundation</span>
+      <span className="badge">SMART CANTEEN</span>
       <h1 style={{ marginTop: 24 }}>ร้านสวัสดิการ ใช้จ่ายสะดวก</h1>
       <p className="muted">เติม Wallet แสดง QR แล้วให้พนักงานยืนยันยอดบนระบบ</p>
       <section className="card" style={{ maxWidth: 600, marginTop: 28 }}>
@@ -50,9 +47,7 @@ export default async function Home() {
           </form>
         )}
       </section>
-      <div className="notice">
-        ระบบระหว่างพัฒนา — sandbox ใช้ทดสอบเท่านั้น ยังไม่รองรับการรับเงินจริง
-      </div>
+      <div className="notice">ยังไม่เปิดบริการเติมเงินและรับชำระเงินจริง</div>
     </>
   );
 }

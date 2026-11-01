@@ -3,9 +3,10 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Registration } from "@/components/registration";
 import { Wallet } from "@/components/wallet";
+import { registrationReady, sandboxAvailable } from "@/lib/readiness";
 export const dynamic = "force-dynamic";
 export default async function WalletPage() {
-  if (!process.env.AUTH_SECRET) redirect("/");
+  if (!registrationReady()) redirect("/");
   const session = await auth();
   if (!session?.user?.id) redirect("/");
   const user = await db.user.findUniqueOrThrow({
@@ -16,6 +17,6 @@ export default async function WalletPage() {
   return user.status === "PENDING" ? (
     <Registration />
   ) : (
-    <Wallet phone={user.phone} />
+    <Wallet phone={user.phone} sandboxEnabled={sandboxAvailable()} />
   );
 }

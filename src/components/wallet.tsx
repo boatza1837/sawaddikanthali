@@ -12,7 +12,13 @@ type WalletData = {
     transaction: { id: string; kind: string; createdAt: string };
   }[];
 };
-export function Wallet({ phone }: { phone: string | null }) {
+export function Wallet({
+  phone,
+  sandboxEnabled,
+}: {
+  phone: string | null;
+  sandboxEnabled: boolean;
+}) {
   const [wallet, setWallet] = useState<WalletData | null>(null),
     [status, setStatus] = useState(""),
     [qr, setQr] = useState(""),
@@ -134,7 +140,7 @@ export function Wallet({ phone }: { phone: string | null }) {
           )}
         </section>
         <section className="card">
-          <h2>เติมเงิน · Sandbox</h2>
+          <h2>{sandboxEnabled ? "เติมเงิน · Sandbox" : "เติมเงิน"}</h2>
           <div className="notice">
             ทดสอบเท่านั้น ไม่ใช่ QR ชำระเงินจริง การเพิ่มยอดต้องผ่าน webhook
             ที่ตรวจลายเซ็น
@@ -161,7 +167,7 @@ export function Wallet({ phone }: { phone: string | null }) {
               }
             }}
           >
-            สร้างรายการทดสอบ
+            {sandboxEnabled ? "สร้างรายการทดสอบ" : "ยังไม่เปิดบริการเติมเงิน"}
           </Button>
           {intent && (
             <div className="status">
