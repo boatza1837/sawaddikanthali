@@ -729,7 +729,7 @@ export function Wallet({
                             color: e.side === "CREDIT" ? "#047857" : "#475569",
                           }}
                         >
-                          {e.transaction.kind}
+                          {e.transaction.kind === "ADJUSTMENT" ? "ปรับยอดโดยผู้ดูแล" : e.transaction.kind}
                         </span>
                       </td>
                       <td

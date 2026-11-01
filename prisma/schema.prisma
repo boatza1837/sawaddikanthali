@@ -174,6 +174,7 @@ model AuditLog {
   detail String?
   createdAt DateTime @default(now())
   @@index([actorId,createdAt])
+  @@index([action,targetId])
 }
 model AdminMfa {
  userId String @id

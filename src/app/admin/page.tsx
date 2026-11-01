@@ -9,5 +9,5 @@ export default async function AdminPage() {
   if (!session?.user?.id) redirect("/");
   const user = await db.user.findUnique({ where: { id: session.user.id } });
   if (user?.status !== "ACTIVE" || user.role !== "ADMIN") return <section className="formal-card"><span className="badge">ADMIN ACCESS</span><h1>พื้นที่สำหรับผู้ดูแล</h1><p>บัญชีนี้ยังไม่มีสิทธิ์ผู้ดูแล กรุณาติดต่อผู้ดูแลระบบ</p></section>;
-  return <Admin name={user.name ?? "ผู้ดูแล"} />;
+  return <Admin name={user.name ?? "ผู้ดูแล"} userId={user.id} />;
 }

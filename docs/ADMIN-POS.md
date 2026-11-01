@@ -14,7 +14,7 @@ If the setup key and device are both lost, recovery requires a trusted database 
 - Latest 50 sales, live open shifts, latest 50 immutable audit events.
 - Search latest 100 matching members; assign USER/EMPLOYEE/SUPERVISOR to registered accounts or suspend/reactivate. Cannot change self/any ADMIN or activate PENDING registration. Each edit requires a reason, revokes target sessions/tokens and is audited.
 - Create/update POS terminals and lock/deactivate them. Locking or deactivating closes open shifts; charge checks terminal state on the server.
-- No balance editing, ledger editing, mock revenue, payment-provider configuration or ADMIN privilege grant in the UI.
+- Admin-only audited balance adjustments are available. No ledger editing, mock revenue, payment-provider configuration or ADMIN privilege grant in the UI.
 
 ## POS
 An ACTIVE EMPLOYEE, SUPERVISOR or ADMIN visits /pos. Admins can act as cashiers through their own open shift; administrative management still requires independent MFA. Open the terminal configured by Admin. A refresh restores the staff member's own open shift. Set the manual amount, confirm it, scan a member QR using camera/USB or paste its token. A sufficient balance is charged automatically against the amount already confirmed; an insufficient balance requires explicit credit approval or cancellation. Camera QR scanning is available with front/back switching and local image decoding; RFID is not integrated.
@@ -47,3 +47,11 @@ The charge request's optional allowNegative flag is fingerprint-bound to its ide
 Admin's daily credit report uses Asia/Bangkok dates, counts all matching transactions, paginates details in batches of 50, identifies member/staff/terminal, and distinguishes gross borrowing created that day (before refunds) from all current outstanding debt. Old sales retain null snapshots/zero borrowing; no debt history is fabricated. Run the reviewed migration before releasing this application version. Its new insert guard requires the updated POS service; suspend cashier usage briefly while migration and deployment complete.
 
 Member Wallet polls once per second while its QR is displayed and every five seconds otherwise, pauses when hidden, and refreshes on return. A newly observed PURCHASE debit opens a receipt dialog with the actual posted amount and clears the consumed QR. Initial history is not presented as a new payment. No email is sent for this notice, and it is not background push when the web app is closed. Physical mobile/audio/camera and two-device acceptance still need a real device check.
+
+## Admin wallet adjustments
+
+In Members, select Increase/decrease money. Requires ACTIVE ADMIN and recent session-bound independent MFA. Enter a positive amount (maximum THB 10,000 per operation) and a mandatory reason (5–500 characters). The preview fetches the current member wallet and requires a separate explicit confirmation showing member identity, direction, before/after balances and reason. The server compares that reviewed balance atomically; if it changes, the administrator must review again. Only ACTIVE registered members with a wallet can be selected, including the administrator own member account.
+
+Every operation posts an immutable ADJUSTMENT ledger using the separate ADMIN_ADJUSTMENT counter-account and an immutable audit detail (actor, member, amount, direction, reason and balance snapshots). It is not recorded as a bank payment, topup or sales income. Manual debit cannot create or deepen debt; only the explicit bounded POS credit workflow may approve debt. Increasing a negative balance reduces current outstanding debt without rewriting historical borrowing.
+
+An idempotency key binds the entire reviewed request including actor/target/amount/reason/starting balance. Unknown network outcomes persist in sessionStorage scoped to the admin and replay with the same key. Do not clear storage or switch device to retry an unknown adjustment. Browser preview/tests do not move real member money; real adjustments are performed only when an authorized admin confirms them in the app.

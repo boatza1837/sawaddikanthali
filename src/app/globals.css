@@ -524,3 +524,6 @@ code {
 @media(max-width:380px) { .pos-quick-add { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
 .pos-grid > *, .workspace .formal-card { min-width:0; }
+
+.adjustment-panel { border:2px solid #a4ceb6 !important; }
+.adjustment-review { background:#f1f8f3; padding:24px; border-radius:18px; margin-top:20px; }

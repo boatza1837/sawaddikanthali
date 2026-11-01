@@ -1,3 +1,4 @@
+import { adjustWallet } from "@/modules/adjustments";
 import { bangkokToday, bangkokDayBounds } from "@/lib/report-day";
 import { z } from "zod";
 import { api, actor } from "@/lib/http";
@@ -41,6 +42,11 @@ export const GET = api(async req => {
     ]);
     return { members, walletBalance: wallet._sum.balance ?? 0, grossSales: sales._sum.amount ?? 0, refunded: sales._sum.refunded ?? 0, saleCount: sales._count, refundCount: refunds, shifts, terminals, audit, transactions };
   }
+  if (path === "/api/admin/wallet") {
+    const memberId = z.string().min(1).max(100).parse(new URL(req.url).searchParams.get("memberId"));
+    const member = await db.user.findUnique({ where: { id: memberId }, select: { id: true, name: true, email: true, status: true, wallet: { select: { balance: true } } } });
+    ensure(member, "NOT_FOUND", 404); return member;
+  }
   if (path === "/api/admin/members") {
     const search = (new URL(req.url).searchParams.get("q") ?? "").slice(0, 100);
     return db.user.findMany({ where: search ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { email: { contains: search, mode: "insensitive" } }, { id: search }] } : {}, select: { id: true, name: true, email: true, role: true, status: true, createdAt: true, wallet: { select: { balance: true } } }, take: 100, orderBy: { createdAt: "desc" } });
@@ -56,6 +62,10 @@ export const POST = api(async req => {
     return verifyMfa(user, code);
   }
   await requireAdmin(user);
+  if (path === "/api/admin/adjust") {
+    const data = z.object({ memberId: z.string().min(1).max(100), direction: z.enum(["CREDIT","DEBIT"]), amount: z.number().int().positive().max(1_000_000), reason: z.string().trim().min(5).max(500), key: z.string().uuid(), expectedBalance: z.number().int() }).strict().parse(await req.json());
+    return adjustWallet({ ...data, actorId: user.id });
+  }
   if (path === "/api/admin/member") {
     const data = z.object({ id: z.string().min(1), role: z.enum(["USER", "EMPLOYEE", "SUPERVISOR"]), status: z.enum(["ACTIVE", "SUSPENDED"]), reason: z.string().trim().min(5).max(500) }).strict().parse(await req.json());
     return serial(async tx => {
