@@ -142,8 +142,9 @@ export function Wallet({
         <section className="card">
           <h2>{sandboxEnabled ? "เติมเงิน · Sandbox" : "เติมเงิน"}</h2>
           <div className="notice">
-            ทดสอบเท่านั้น ไม่ใช่ QR ชำระเงินจริง การเพิ่มยอดต้องผ่าน webhook
-            ที่ตรวจลายเซ็น
+            {sandboxEnabled
+              ? "ทดสอบเท่านั้น ไม่ใช่ QR ชำระเงินจริง"
+              : "ยังไม่เปิดเติมเงิน กำลังเชื่อมต่อผู้ให้บริการรับชำระเงิน"}
           </div>
           <label htmlFor="amount">จำนวนเงิน (บาท)</label>
           <input
@@ -153,7 +154,7 @@ export function Wallet({
             onChange={(e) => setAmount(e.target.value)}
           />
           <Button
-            disabled={busy}
+            disabled={busy || !sandboxEnabled}
             onClick={async () => {
               try {
                 const value = satang(amount);

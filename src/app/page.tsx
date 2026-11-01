@@ -19,8 +19,7 @@ export default async function Home() {
         <p>สมัครด้วย Google ยืนยันอีเมล OTP และเพิ่มเบอร์โทรติดต่อ</p>
         {!configured ? (
           <div className="notice">
-            ยังไม่ได้ตั้งค่า Google OAuth และ AUTH_SECRET กรุณาทำตาม README
-            ก่อนเข้าสู่ระบบ
+            กำลังเตรียมระบบสมัครสมาชิก กรุณากลับมาอีกครั้งภายหลัง
           </div>
         ) : session ? (
           <>
