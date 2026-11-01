@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { emailConfigured, sendVerificationEmail } from "../src/modules/email";
+import {
+  renderOtpEmailHtml,
+  emailConfigured,
+  sendVerificationEmail,
+} from "../src/modules/email";
 beforeEach(() => {
   vi.stubEnv("EMAIL_PROVIDER", "brevo");
   vi.stubEnv("BREVO_API_KEY", "test-key-not-a-real-credential");
@@ -11,13 +15,11 @@ afterEach(() => {
 });
 describe("Brevo delivery boundary", () => {
   it("sends through HTTPS with configured sender and accepts only provider acknowledgement", async () => {
-    const mocked = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ messageId: "test-message" }), {
-          status: 201,
-        }),
-      );
+    const mocked = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ messageId: "test-message" }), {
+        status: 201,
+      }),
+    );
     vi.stubGlobal("fetch", mocked);
     await sendVerificationEmail("member@example.test", "123456");
     expect(mocked).toHaveBeenCalledOnce();
@@ -27,17 +29,18 @@ describe("Brevo delivery boundary", () => {
     expect(body.sender.email).toBe("sender@example.test");
     expect(body.to).toEqual([{ email: "member@example.test" }]);
     expect(body.textContent).toContain("123456");
+    expect(body.htmlContent).toBeDefined();
+    expect(body.htmlContent).toContain("123456");
+    expect(body.htmlContent).toContain("SMART CANTEEN");
   });
   it("rejects provider errors without leaking response details", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ message: "private-provider-detail" }), {
-            status: 403,
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: "private-provider-detail" }), {
+          status: 403,
+        }),
+      ),
     );
     await expect(
       sendVerificationEmail("member@example.test", "123456"),
@@ -62,4 +65,11 @@ describe("Brevo delivery boundary", () => {
       sendVerificationEmail("member@example.test", "123456"),
     ).rejects.toThrow("EMAIL_DELIVERY_FAILED");
   });
+});
+
+it("rejects markup before OTP HTML interpolation", () => {
+  expect(() => renderOtpEmailHtml("<img src=x onerror=alert(1)>")).toThrow(
+    "INVALID_OTP_FORMAT",
+  );
+  expect(() => renderOtpEmailHtml("12345")).toThrow("INVALID_OTP_FORMAT");
 });

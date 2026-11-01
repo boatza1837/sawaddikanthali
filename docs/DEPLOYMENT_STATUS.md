@@ -44,3 +44,9 @@
 - Google OAuth callback subsequently succeeded and a real session opened the pending-registration page. One earlier concurrent/overlapping OAuth attempt failed with Invalid code verifier; PKCE was not disabled. Sign-in button now prevents duplicate submissions while pending.
 - The current account's OTP send window was exhausted during setup retries. Do not reset/bypass production limits: wait for the fixed window to expire. Responses now include exact server Retry-After/remaining TTL, and the UI shows a countdown. OTP and phone forms validate separately, preserving the intended OTP-first flow.
 - 34 tests passed. End-to-end OTP from Vercel and phone collection still need completion after the send window clears. Do not claim completed registration or a funded wallet.
+
+## Wallet review update
+- Reviewed the latest Gemini wallet/registration/email styling changes. No new client-side balance mutation, cross-member wallet lookup or OTP/role bypass found in this change set. This is a scoped review, not a guarantee that the whole application is vulnerability-free.
+- Adjusted readiness/phone/QR wording to match server behavior. OTP HTML renderer now rejects anything except six digits before interpolation. Financial APIs remain server-authorized and production sandbox remains disabled.
+- TypeScript, build and 40 automated checks passed. This review's email tests mock provider calls; they send no real email and consume no Brevo email quota. Financial tests use the separate local test database, not cloud financial records. Production dependency audit reported no known vulnerabilities.
+- User explicitly approved disabling Brevo API IP blocking for the whole account and subsequently reported testing email personally. UI was observed as Deactivated. User has now instructed no further Brevo changes or provider email tests; no further provider actions will be performed without a new request.

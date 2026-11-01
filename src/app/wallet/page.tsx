@@ -1,10 +1,12 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Registration } from "@/components/registration";
 import { Wallet } from "@/components/wallet";
 import { registrationReady, sandboxAvailable } from "@/lib/readiness";
+
 export const dynamic = "force-dynamic";
+
 export default async function WalletPage() {
   if (!registrationReady()) redirect("/");
   const session = await auth();
@@ -14,9 +16,22 @@ export default async function WalletPage() {
   });
   if (user.status === "SUSPENDED")
     return <h1>บัญชีถูกระงับ กรุณาติดต่อผู้ดูแล</h1>;
+
+  async function handleSignOut() {
+    "use server";
+    await signOut({ redirectTo: "/" });
+  }
+
   return user.status === "PENDING" ? (
-    <Registration />
+    <Registration email={user.email ?? undefined} />
   ) : (
-    <Wallet phone={user.phone} sandboxEnabled={sandboxAvailable()} />
+    <Wallet
+      phone={user.phone}
+      phoneVerified={user.phoneVerified}
+      name={user.name ?? session.user?.name ?? undefined}
+      email={user.email ?? session.user?.email ?? undefined}
+      sandboxEnabled={sandboxAvailable()}
+      onSignOut={handleSignOut}
+    />
   );
 }
