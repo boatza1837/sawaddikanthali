@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import QRCode from "qrcode";
-import { SlipTopup } from "./slip-topup";
+import { TopupRouter as SlipTopup } from "./topup-router";
 import { Button } from "./ui/button";
 import { MAX_OVERDRAFT } from "@/lib/credit";
 import { money, satang } from "@/lib/money";

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { WalletAdjustment } from "./wallet-adjustment";
 import { DebtReport } from "./debt-report";
+import { TopupMode } from "./topup-mode";
 import { money } from "@/lib/money";
 import { Button } from "./ui/button";
 type Member = { id: string; name: string | null; email: string | null; role: string; status: string; wallet: { balance: number } | null };
@@ -39,6 +40,7 @@ export function Admin({ name, userId }: { name: string; userId: string }) {
     return () => clearTimeout(timer);
   }, [verified]);
   return <div className="workspace">
+    {verified && <TopupMode />}
     <div className="workspace-heading"><div><span className="badge">SMART CANTEEN · ADMIN</span><h1>ดูแลร้านอย่างสบายใจ</h1><p className="muted">สวัสดี {name} · ข้อมูลจริงจากระบบ</p></div>{verified && <Button variant="outline" disabled={busy} onClick={() => run(refresh)}>↻ อัปเดตข้อมูล</Button>}</div>
     <p className="status" role="status">{busy ? "กำลังดำเนินการ…" : status}</p>
     {!loaded ? <div className="formal-card">กำลังตรวจสิทธิ์…</div> : !verified ? <section className="formal-card security-card">
