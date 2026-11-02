@@ -51,4 +51,16 @@ suite("Slip settlement on dedicated local test database, provider mocked",()=>{
     expect(vi.mocked(fetch).mock.calls.length).toBe(calls);
     expect((await db.wallet.findUniqueOrThrow({where:{userId:other}})).balance).toBe(0);
   });
+  it("waits one minute before Connext slip fallback and replays a notification-paid intent without provider calls",async()=>{
+    const intent=await createSlipTopup(member,10000,randomUUID());
+    await db.topupIntent.update({where:{id:intent.id},data:{provider:"connext"}});
+    const calls=vi.mocked(fetch).mock.calls.length;
+    await expect(submitSlip(member,intent.id,file("early-fallback"))).rejects.toThrow("SLIP_FALLBACK_WAIT");
+    expect(vi.mocked(fetch).mock.calls.length).toBe(calls);
+    // Reuse the already settled intent to exercise cross-provider replay without financial mutation.
+    const paid=await db.topupIntent.findFirstOrThrow({where:{wallet:{userId:member},status:"PAID"}});
+    await db.topupIntent.update({where:{id:paid.id},data:{provider:"connext"}});
+    expect((await submitSlip(member,paid.id,file("already-paid"))).replayed).toBe(true);
+    expect(vi.mocked(fetch).mock.calls.length).toBe(calls);
+  });
 });

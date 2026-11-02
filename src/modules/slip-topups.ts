@@ -41,9 +41,10 @@ export async function submitSlip(userId: string, intentId: string, file: File) {
   const imageHash = createHash("sha256").update(bytes).digest("hex");
   const lease = randomUUID();
   const intent = await serial(async tx => {
-    const found = await tx.topupIntent.findFirst({ where: { id: intentId, provider: "slip2go", wallet: { userId } } });
+    const found = await tx.topupIntent.findFirst({ where: { id: intentId, provider: { in: ["slip2go", "connext"] }, wallet: { userId } } });
     ensure(found, "NOT_FOUND", 404);
     if (found.status === "PAID") return found;
+    if(found.provider === "connext") ensure(Date.now()-found.createdAt.getTime()>=60000,"SLIP_FALLBACK_WAIT",409);
     ensure(found.status === "PENDING" && found.expiresAt > new Date(), "PAYMENT_EXPIRED", 409);
     const prior = await tx.slipUpload.findUnique({ where: { imageHash } });
     ensure(!prior || prior.intentId === found.id, "SLIP_ALREADY_SUBMITTED", 409);
@@ -66,6 +67,10 @@ export async function submitSlip(userId: string, intentId: string, file: File) {
       ensure(upload.lease === lease, "SLIP_CHECK_IN_PROGRESS", 409);
       const used = await tx.topupIntent.findUnique({ where: { paymentRef: verified.paymentRef } });
       ensure(!used, "SLIP_ALREADY_USED", 409);
+      // A notification has no bank transRef. Prevent its slip from crediting a
+      // second intent after notification settlement, even across different users.
+      const notificationPaid = await tx.topupIntent.findFirst({where:{provider:"connext",status:"PAID",amount:current.amount,createdAt:{lte:verified.paidAt},expiresAt:{gte:verified.paidAt}}});
+      ensure(!notificationPaid,"SLIP_ALREADY_USED",409);
       const changed = await tx.topupIntent.updateMany({ where: { id: current.id, status: "PENDING" }, data: { status: "PAID", paymentRef: verified.paymentRef } });
       ensure(changed.count === 1, "PAYMENT_CONFLICT", 409);
       await tx.wallet.update({ where: { id: current.walletId }, data: { balance: { increment: current.amount } } });
