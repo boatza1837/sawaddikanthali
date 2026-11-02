@@ -19,10 +19,12 @@ export async function createQueuedConnext(userId:string,requested:number,key:str
   const wallet=await tx.wallet.findUniqueOrThrow({where:{userId}});
   ensure(await tx.topupIntent.count({where:{walletId:wallet.id,provider:"connext",status:"PENDING",expiresAt:{gt:new Date()}}})<2,"CONNEXT_PENDING_LIMIT",409);
   const ceiling=Math.floor(requested/100)*100;
-  const used=await tx.connextReservation.findMany({where:{holdUntil:{gt:new Date()},amount:{gte:Math.max(1,ceiling-499),lt:ceiling}},select:{amount:true}});
-  const occupied=new Set(used.map(x=>x.amount));let amount=ceiling-1;
-  while(amount>0&&ceiling-amount<=499&&occupied.has(amount))amount--;
-  ensure(amount>0&&ceiling-amount<=499,"CONNEXT_AMOUNTS_BUSY",409);
+  const used=await tx.connextReservation.findMany({where:{holdUntil:{gt:new Date()},amount:{gte:Math.max(1,ceiling-499),lte:Math.min(1000000,ceiling+99)}},select:{amount:true}});
+  const occupied=new Set(used.map(x=>x.amount));
+  // Fill the base baht's .01-.99 first, then descend from one satang below it.
+  const candidates=[...Array.from({length:99},(_,i)=>ceiling+i+1),...Array.from({length:499},(_,i)=>ceiling-i-1)];
+  const amount=candidates.find(value=>value>0&&value<=1000000&&!occupied.has(value));
+  ensure(amount!==undefined,"CONNEXT_AMOUNTS_BUSY",409);
   const created=await tx.topupIntent.create({data:{key:scoped,walletId:wallet.id,amount,requestedAmount:requested,provider:"connext",expiresAt:new Date(Date.now()+15*60000)}});
   await tx.connextReservation.upsert({where:{amount},create:{amount,intentId:created.id,holdUntil:new Date(created.expiresAt.getTime()+180000)},update:{intentId:created.id,holdUntil:new Date(created.expiresAt.getTime()+180000)}});
   return created;

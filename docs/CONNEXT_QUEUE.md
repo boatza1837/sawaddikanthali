@@ -21,10 +21,12 @@ lose notifications before capture; server durability cannot recover those. The
 
 ## Amount reservations
 
-A whole-baht request of 100 starts at 99.99, then 99.98, etc. Up to 499 positive
-satang amounts below the base can be reserved concurrently (maximum discount
-4.99 baht); the actual transferred amount is fully credited. A 1-baht request has
-only 99 positive possibilities. This is finite capacity, not unlimited allocation.
+A whole-baht request of 100 fills 100.01 through 100.99 first (99 amounts), then
+descends through 99.99, 99.98, etc. Up to 499 positive satang amounts below the
+base are available after that (maximum discount 4.99 baht); the actual transferred
+amount is fully credited. A 1-baht request has 198 positive possibilities, and
+amounts never exceed the existing payment maximum of 10,000 baht. This is finite
+capacity, not unlimited allocation.
 Reservations remain held through intent expiry plus three minutes to avoid late
 notification matching, then can be reused instead of being blocked for 24 hours.
 The UI displays the actual payable amount before transfer.
