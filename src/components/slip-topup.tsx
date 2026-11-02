@@ -37,9 +37,11 @@ const messages: Record<string, string> = {
 export function SlipTopup({
   enabled,
   onPaid,
+  onConfirmed,
 }: {
   enabled: boolean;
   onPaid: () => Promise<void>;
+  onConfirmed?: (amount:number) => void;
 }) {
   const [amount, setAmount] = useState("100");
   const [intent, setIntent] = useState<Intent | null>(null);
@@ -298,6 +300,7 @@ export function SlipTopup({
                     form.set("file", file!);
                     const data = await send(form);
                     setIntent({ ...intent, status: data.status });
+                    if(data.status === "PAID") onConfirmed?.(intent.amount);
                     await onPaid();
                   })
                 }
