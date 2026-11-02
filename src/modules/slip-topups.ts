@@ -44,7 +44,7 @@ export async function submitSlip(userId: string, intentId: string, file: File) {
     const found = await tx.topupIntent.findFirst({ where: { id: intentId, provider: { in: ["slip2go", "connext"] }, wallet: { userId } } });
     ensure(found, "NOT_FOUND", 404);
     if (found.status === "PAID") return found;
-    if(found.provider === "connext") ensure(Date.now()-found.createdAt.getTime()>=20000,"SLIP_FALLBACK_WAIT",409);
+    if(found.provider === "connext") ensure(Date.now()-found.createdAt.getTime()>=67000,"SLIP_FALLBACK_WAIT",409);
     ensure(found.status === "PENDING" && found.expiresAt > new Date(), "PAYMENT_EXPIRED", 409);
     const prior = await tx.slipUpload.findUnique({ where: { imageHash } });
     ensure(!prior || prior.intentId === found.id, "SLIP_ALREADY_SUBMITTED", 409);
