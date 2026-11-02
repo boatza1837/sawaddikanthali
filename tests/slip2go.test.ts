@@ -18,7 +18,14 @@ describe("Slip2Go financial trust boundary",()=>{
     raw.data.receiver.account.proxy.account="x-xxxx-xxxx0456";
     expect(validateSlip(raw,idConfig,10000,created,expires,expires).paymentRef).toBe("bank:004:bank-reference");
   });
-  it.each(["200000","200501","200401","200402","200403","200202"])("rejects code %s even if it includes transaction data",code=>{const r=result();r.code=code;expect(()=>validateSlip(r,config,10000,created,expires,expires)).toThrow("SLIP_UNVERIFIED");});
+  it.each(["200000","200501","200401","200402","200403","200202"])("rejects code %s even if it includes transaction data",code=>{const r=result();r.code=code;expect(()=>validateSlip(r,config,10000,created,expires,expires)).toThrow(code === "200000" ? "SLIP_UNVERIFIED" : `SLIP_PROVIDER_${code}`);});
+  it("accepts provider-confirmed national ID with unknown bank and abbreviated name",()=>{
+    const raw={code:"200200",data:{...result().data,receiver:{bank:{id:"000"},account:{name:"ทดสอบ ร",bank:{account:null},proxy:{type:"NATID",account:"x-xxxx-xxxx0-45-6"}}}}};
+    const cfg={...config,promptpay:"1234567890456"};
+    expect(validateSlip(raw,cfg,10000,created,expires,expires).paymentRef).toBe("bank:004:bank-reference");
+    raw.data.receiver.account.proxy.account="x-xxxx-xxxx0-45-7";
+    expect(()=>validateSlip(raw,cfg,10000,created,expires,expires)).toThrow("SLIP_RECEIVER_MISMATCH");
+  });
   it("rejects amount mismatches, stale slips, future transfers and wrong receivers",()=>{
     expect(()=>validateSlip(result(),config,20000,created,expires,expires)).toThrow("SLIP_AMOUNT_MISMATCH");
     const old=result();old.data.dateTime="2026-10-31T23:59:59Z";expect(()=>validateSlip(old,config,10000,created,expires,expires)).toThrow("SLIP_DATE_MISMATCH");

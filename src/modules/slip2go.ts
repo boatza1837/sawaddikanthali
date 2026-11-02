@@ -12,7 +12,7 @@ export function slipConfig() {
   return { secret, bank, account, name, promptpay };
 }
 
-const accountSchema = z.object({ name: z.string(), bank: z.object({ account: z.string() }).nullish(), proxy: z.object({ type: z.string().nullish(), account: z.string() }).nullish() });
+const accountSchema = z.object({ name: z.string(), bank: z.object({ account: z.string().nullable() }).nullish(), proxy: z.object({ type: z.string().nullish(), account: z.string() }).nullish() });
 const responseSchema = z.object({ code: z.string(), data: z.object({ transRef: z.string().min(1).max(150), amount: z.number().positive().max(10000), dateTime: z.string().datetime({ offset: true }), sender: z.object({ bank: z.object({ id: z.string().regex(/^\d{3}$/) }) }), receiver: z.object({ account: accountSchema, bank: z.object({ id: z.string() }) }) }) });
 
 // Masked digits must match their exact positions; suffix-only matching is insufficient.
@@ -26,8 +26,12 @@ export function maskedAccountMatches(masked: string | undefined, full: string) {
 const normalizedName = (name: string) => name.normalize("NFKC").replace(/\s/g, "").toLowerCase();
 
 export function validateSlip(raw: unknown, config: NonNullable<ReturnType<typeof slipConfig>>, amount: number, createdAt: Date, expiresAt: Date, now = new Date()) {
+  const providerCode = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(raw);
+  if (providerCode.success && !["200000", "200200"].includes(providerCode.data.code)) {
+    ensure(false, `SLIP_PROVIDER_${providerCode.data.code}`, 409);
+  }
   const parsed = responseSchema.safeParse(raw);
-  ensure(parsed.success, "SLIP_UNVERIFIED", 409);
+  ensure(parsed.success, "SLIP_RESPONSE_FORMAT", 409);
   const { code, data } = parsed.data;
   // Only an explicitly validated response is accepted when receiver conditions were sent.
   ensure(code === "200200", "SLIP_UNVERIFIED", 409);
@@ -35,9 +39,12 @@ export function validateSlip(raw: unknown, config: NonNullable<ReturnType<typeof
   const paidAt = new Date(data.dateTime);
   ensure(paidAt >= createdAt && paidAt <= expiresAt && paidAt <= now, "SLIP_DATE_MISMATCH", 409);
   const receiver = data.receiver;
-  const bankMatch = receiver.bank.id === config.bank && maskedAccountMatches(receiver.account.bank?.account, config.account);
-  const proxyMatch = receiver.bank.id === config.bank && receiver.account.proxy?.type === (config.promptpay.length === 13 ? "NATID" : "MSISDN") && maskedAccountMatches(receiver.account.proxy.account, config.promptpay);
-  ensure((bankMatch || proxyMatch) && normalizedName(receiver.account.name) === normalizedName(config.name), "SLIP_RECEIVER_MISMATCH", 409);
+  const bankMatch = receiver.bank.id === config.bank && maskedAccountMatches(receiver.account.bank?.account ?? undefined, config.account) && normalizedName(receiver.account.name) === normalizedName(config.name);
+  // PromptPay transfers can return bank 000 and an abbreviated recipient name.
+  // Provider code 200200 confirms the full configured proxy matched; independently
+  // require its type and all visible digits to match as well.
+  const proxyMatch = [config.bank, "000"].includes(receiver.bank.id) && receiver.account.proxy?.type === (config.promptpay.length === 13 ? "NATID" : "MSISDN") && maskedAccountMatches(receiver.account.proxy.account, config.promptpay);
+  ensure(bankMatch || proxyMatch, "SLIP_RECEIVER_MISMATCH", 409);
   return { paymentRef: `bank:${data.sender.bank.id}:${data.transRef}`, paidAt };
 }
 
@@ -51,7 +58,7 @@ export async function verifySlip(file: File, config: NonNullable<ReturnType<type
     checkDuplicate: false,
     checkReceiver: [
       { accountType: `01${config.bank}`, accountNumber: config.account, ...receiverName },
-      { ...(config.promptpay.length === 10 ? { accountType: "02001" } : {}), accountNumber: config.promptpay, ...receiverName },
+      { accountType: config.promptpay.length === 10 ? "02001" : "02003", accountNumber: config.promptpay },
     ],
     checkAmount: { type: "eq", amount: (amount / 100).toFixed(2) },
     checkDate: { type: "gte", date: createdAt.toISOString() },
