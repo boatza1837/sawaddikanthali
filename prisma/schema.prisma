@@ -105,6 +105,7 @@ model TopupIntent {
   key String @unique
   walletId String
   amount Int
+  requestedAmount Int?
   currency String @default("THB")
   status String @default("PENDING")
   provider String @default("sandbox")
@@ -232,4 +233,28 @@ model SlipUpload {
   createdAt DateTime @default(now())
   intent TopupIntent @relation(fields:[intentId],references:[id])
   @@index([intentId,leaseUntil])
+}
+
+model ConnextReservation {
+ amount Int @id
+ intentId String @unique
+ holdUntil DateTime
+ @@index([holdUntil])
+}
+model ConnextJob {
+ id String @id
+ amount Int
+ account String
+ paidAt DateTime
+ receivedAt DateTime @default(now())
+ status String @default("PENDING")
+ attempts Int @default(0)
+ availableAt DateTime @default(now())
+ lastError String?
+ @@index([status,availableAt])
+}
+model ConnextWorker {
+ id String @id
+ lease String
+ lockedUntil DateTime
 }

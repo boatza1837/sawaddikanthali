@@ -24,6 +24,16 @@ function Send-Event($text){
  return Invoke-RestMethod -Uri $endpoint -Method Post -Body $bytes -ContentType 'application/json; charset=utf-8' -Headers @{'x-connext-signature'=$signature} -TimeoutSec 15
 }
 $seen=[Collections.Generic.HashSet[string]]::new()
+$outboxPath=Join-Path $projectRoot '.cache/connext-outbox.json'
+[IO.Directory]::CreateDirectory((Split-Path $outboxPath)) | Out-Null
+$outbox=@()
+if(Test-Path -LiteralPath $outboxPath){$outbox=@(Get-Content -LiteralPath $outboxPath -Raw | ConvertFrom-Json)}
+function Save-Outbox {
+ $temporary=$outboxPath+'.tmp'
+ [IO.File]::WriteAllText($temporary,(ConvertTo-Json -InputObject @($script:outbox) -Depth 4),[Text.UTF8Encoding]::new($false))
+ Move-Item -LiteralPath $temporary -Destination $outboxPath -Force
+}
+foreach($entry in $outbox){[void]$seen.Add($entry.id)}
 # Historical notifications never become fresh deposits when the process starts.
 foreach($item in (Read-Notifications)){[void]$seen.Add([string]$item.Id+':'+$item.CreationTime.ToString())}
 $lastHeartbeat=[DateTime]::MinValue
@@ -32,7 +42,6 @@ while($true){
  try{
   if($listener.GetAccessStatus().ToString() -ne 'Allowed'){throw 'Notification permission revoked'}
   $items=Read-Notifications
-  if(([DateTime]::UtcNow-$lastHeartbeat).TotalSeconds -gt 15){Send-Event $null | Out-Null;$lastHeartbeat=[DateTime]::UtcNow}
   foreach($item in $items){
    $id=[string]$item.Id+':'+$item.CreationTime.ToString()
    if($seen.Contains($id)){continue}
@@ -42,9 +51,16 @@ while($true){
    if(-not $binding){[void]$seen.Add($id);continue}
    $texts=@($binding.GetTextElements() | ForEach-Object Text)
    if($texts.Count -lt 2 -or $texts[0] -cne 'Krungthai Connext'){[void]$seen.Add($id);continue}
-   try{Send-Event (($texts|Select-Object -Skip 1) -join ' ') | Out-Null;[void]$seen.Add($id);Write-Output 'Connext event accepted.'}
-   catch{$status=0;if($_.Exception.Response){$status=[int]$_.Exception.Response.StatusCode};if($status -in @(400,409)){[void]$seen.Add($id);Write-Output ('Connext event rejected; no credit. HTTP='+$status)}else{Write-Output ('Connext delivery failed; retry pending. HTTP='+$status)}}
+   $outbox+= [pscustomobject]@{id=$id;text=(($texts|Select-Object -Skip 1) -join ' ');status='PENDING'}
+   Save-Outbox
+   [void]$seen.Add($id)
   }
+  # Capture and persist every visible toast before any network request can block.
+  foreach($entry in @($outbox | Where-Object status -eq 'PENDING')){
+   try{Send-Event $entry.text | Out-Null;$entry.status='SENT';Save-Outbox;Write-Output 'Connext event durably accepted.'}
+   catch{$status=0;if($_.Exception.Response){$status=[int]$_.Exception.Response.StatusCode};if($status -in @(400,409)){$entry.status='REVIEW';Save-Outbox;Write-Output ('Connext event retained for review. HTTP='+$status)}else{Write-Output ('Connext delivery failed; persisted retry pending. HTTP='+$status);break}}
+  }
+  if(([DateTime]::UtcNow-$lastHeartbeat).TotalSeconds -gt 15){Send-Event $null | Out-Null;$lastHeartbeat=[DateTime]::UtcNow}
  }catch{Write-Output 'Connext listener offline; retrying.'}
  Start-Sleep -Seconds 2
 }
