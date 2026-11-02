@@ -8,7 +8,7 @@ const suite=process.env.RUN_DB_TESTS==="1"?describe:describe.skip;
 suite("Slip settlement on dedicated local test database, provider mocked",()=>{
   let member:string, other:string;
   const suffix=randomUUID();
-  const file=(tag:string)=>new File([new Uint8Array([137,80,78,71,13,10,26,10]),tag],"test.png",{type:"image/png"});
+  const file=(tag:string)=>new File([new Uint8Array([137,80,78,71,13,10,26,10]),suffix,tag],"test.png",{type:"image/png"});
   let ref="";
   let amount=100;
   beforeAll(async()=>{
