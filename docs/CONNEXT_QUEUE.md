@@ -74,3 +74,25 @@ so Windows can emit notifications. Capture has no wallet/database/API access.
 At rollout, real LINE capture remains unverified until these reports exist and
 are compared. Local financial load results above do not certify the desktop
 notification delivery channel.
+
+### Completed real LINE capture runs (2026-11-02)
+
+- `burst-25691102-193344`: 50/50 push requests accepted in 1,141 ms;
+  Windows capture contained all IDs 1–50. No wallet effects.
+- `amount-476e4969`: actual service reserved 111 isolated local intents for a
+  requested 50 baht each, using 50.01–50.99 then 49.99–49.88. The test OA sent
+  one unique 12-character code and exact decimal amount per intent. All 111 push
+  requests were accepted in 873 ms. Windows independently captured all 111
+  messages; all codes and amounts matched the original fixtures, with zero
+  conflicting payloads. API acceptance duration is not end-to-end capture latency.
+- Simulated bank events derived from those captured values were submitted twice
+  (222 deliveries) to the actual settlement service in localhost/canteen_loadtest.
+  All 111 intents paid, each wallet equaled its own amount with one ledger only.
+  Expected and actual combined balance: 559,872 satang. No real wallet credited,
+  no real Slip2Go/Brevo calls. This is not 111 actual bank transfers or Vercel load.
+
+Artifacts (private/ignored): `.cache/line-amount-fixture.json`,
+`.cache/line-send-amount-476e4969.json`, `.cache/line-test-amount-476e4969.json`,
+`.cache/line-amount-result.json`. The opt-in `tests/line-amount.integration.ts`
+prepares fixtures or, with LINE_AMOUNT_PHASE=settle, verifies captured payloads
+and settlement. The desktop reader supports Count=111; sender uses --amounts.

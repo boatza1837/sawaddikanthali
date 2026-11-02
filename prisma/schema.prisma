@@ -258,3 +258,22 @@ model ConnextWorker {
  lease String
  lockedUntil DateTime
 }
+
+model ConnextHealth {
+ id String @id
+ status String
+ reason String
+ lastHeartbeat DateTime?
+ changedAt DateTime @default(now())
+}
+model ConnextAlert {
+ id String @id @default(uuid())
+ retryKey String @unique @default(uuid())
+ text String
+ status String @default("PENDING")
+ attempts Int @default(0)
+ availableAt DateTime @default(now())
+ createdAt DateTime @default(now())
+ sentAt DateTime?
+ @@index([status,availableAt])
+}

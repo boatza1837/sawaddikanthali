@@ -4,7 +4,7 @@ import {createServer} from "node:http";
 import {performance} from "node:perf_hooks";
 import {randomUUID} from "node:crypto";
 import {mkdirSync,writeFileSync} from "node:fs";
-vi.mock("@upstash/redis",()=>({Redis:class{get(){return Promise.resolve(true)}}}));
+vi.mock("@upstash/redis",()=>({Redis:class{get(){return Promise.resolve({status:"ONLINE",at:Date.now(),version:2})}}}));
 vi.mock("../src/lib/redis",()=>({redisConnection:()=>({url:"https://unused.invalid",token:"test"})}));
 import {db} from "../src/lib/db";
 import {createConnext,acceptConnext,drainConnext} from "../src/modules/connext";

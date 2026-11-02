@@ -18,6 +18,13 @@ function Read-Notifications {
 function Send-Event($text){
  $payload=@{sentAt=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()}
  if($text){$payload['text']=$text}
+ else {
+  $payload['agentVersion']=2
+  $payload['health']='UNKNOWN'
+  if($listener.GetAccessStatus().ToString() -ne 'Allowed'){$payload['health']='NOTIFICATIONS_DENIED'}
+  elseif(@(Get-Process -Name LINE -ErrorAction SilentlyContinue).Count -eq 0){$payload['health']='LINE_STOPPED'}
+  else{$payload['health']='ONLINE'}
+ }
  $bytes=[Text.Encoding]::UTF8.GetBytes(($payload|ConvertTo-Json -Compress))
  $hmac=[Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($agentSecret))
  try{$signature=([BitConverter]::ToString($hmac.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()}finally{$hmac.Dispose()}
@@ -60,7 +67,7 @@ while($true){
    try{Send-Event $entry.text | Out-Null;$entry.status='SENT';Save-Outbox;Write-Output 'Connext event durably accepted.'}
    catch{$status=0;if($_.Exception.Response){$status=[int]$_.Exception.Response.StatusCode};if($status -in @(400,409)){$entry.status='REVIEW';Save-Outbox;Write-Output ('Connext event retained for review. HTTP='+$status)}else{Write-Output ('Connext delivery failed; persisted retry pending. HTTP='+$status);break}}
   }
-  if(([DateTime]::UtcNow-$lastHeartbeat).TotalSeconds -gt 15){Send-Event $null | Out-Null;$lastHeartbeat=[DateTime]::UtcNow}
  }catch{Write-Output 'Connext listener offline; retrying.'}
+ try{if(([DateTime]::UtcNow-$lastHeartbeat).TotalSeconds -gt 15){Send-Event $null | Out-Null;$lastHeartbeat=[DateTime]::UtcNow}}catch{Write-Output 'Health heartbeat failed; external watchdog will detect timeout.'}
  Start-Sleep -Seconds 2
 }

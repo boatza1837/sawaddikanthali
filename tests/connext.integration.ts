@@ -1,7 +1,7 @@
 import "dotenv/config";
 import {describe,it,expect,vi,beforeAll,afterAll} from "vitest";
 import {randomUUID} from "node:crypto";
-vi.mock("@upstash/redis",()=>({Redis:class{get(){return Promise.resolve(true)}}}));
+vi.mock("@upstash/redis",()=>({Redis:class{get(){return Promise.resolve({status:"ONLINE",at:Date.now(),version:2})}}}));
 vi.mock("../src/lib/redis",()=>({redisConnection:()=>({url:"https://unused.example",token:"test"})}));
 import {db} from "../src/lib/db";
 import {createConnext,acceptConnext,drainConnext} from "../src/modules/connext";

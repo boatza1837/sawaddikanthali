@@ -1,0 +1,5 @@
+CREATE TABLE "ConnextHealth" (id TEXT PRIMARY KEY,status TEXT NOT NULL,reason TEXT NOT NULL,"lastHeartbeat" TIMESTAMP(3),"changedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "ConnextAlert" (id TEXT PRIMARY KEY,"retryKey" TEXT NOT NULL UNIQUE,text TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'PENDING',attempts INTEGER NOT NULL DEFAULT 0,"availableAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"sentAt" TIMESTAMP(3));
+CREATE INDEX "ConnextAlert_status_availableAt_idx" ON "ConnextAlert"(status,"availableAt");
+ALTER TABLE "ConnextHealth" ADD CONSTRAINT connext_health_state CHECK(status IN ('ONLINE','OFFLINE'));
+ALTER TABLE "ConnextAlert" ADD CONSTRAINT connext_alert_state CHECK(status IN ('PENDING','SENT','REVIEW') AND attempts>=0);

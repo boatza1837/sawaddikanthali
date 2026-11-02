@@ -9,7 +9,7 @@ export async function topupMode() {
  const setting=await db.auditLog.findFirst({where:{action:"TOPUP_MODE_CHANGED"},orderBy:[{createdAt:"desc"},{id:"desc"}]});
  return setting?.detail === "connext" ? "connext" : "slip2go";
 }
-export async function listenerOnline(){return Boolean(await new Redis(redisConnection()).get("canteen:connext:alive"));}
+export async function listenerOnline(){try{const h=await new Redis(redisConnection()).get<{status:string;at:number;version:number}>("canteen:connext:health");return Boolean(h?.version===2&&h.status==="ONLINE"&&Number.isFinite(h.at)&&Date.now()-h.at>=0&&Date.now()-h.at<45000);}catch{return false;}}
 export function parseConnext(text:string){
  const m=/^เงินเข้า:\s*([\d,]+\.\d{2}) บาท เข้าบัญชี XX(\d{4}) เมื่อ (\d{2})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}) ยอดเงินที่ใช้ได้ ([\d,]+\.\d{2}) บาท$/.exec(text.trim());
  ensure(m,"CONNEXT_INCOMPLETE",400);
