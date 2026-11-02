@@ -23,7 +23,7 @@ suite("Connext real PostgreSQL, simulated notification only",()=>{
   const results=await Promise.all([acceptConnext(text),acceptConnext(text)]);
   expect(results.every(x=>x.queued)).toBe(true);
   expect((await db.wallet.findUniqueOrThrow({where:{userId}})).balance).toBe(0);
-  await drainConnext(100);
+  await Promise.all([drainConnext(100),drainConnext(100),drainConnext(100)]);
   expect((await db.wallet.findUniqueOrThrow({where:{userId}})).balance).toBe(a.amount);
   expect(await db.ledgerTransaction.count({where:{reference:a.id}})).toBe(1);
   await acceptConnext(text);await drainConnext(100);

@@ -49,3 +49,26 @@ Raw local result: `.cache/load-test-queue-report.json` (ignored). Prior baseline
 results are in LOAD_TEST_REPORT.md; its old bottlenecks describe the pre-queue
 version. Real LINE notification capture requires its own device test. Never send
 test bot notifications into the production bank notification endpoint.
+
+## Isolated LINE capture test
+
+Free test OA: `Canteen Test Bot`, `@642afwey`; provider `Smart Canteen Test`.
+The bot is deliberately not named Krungthai Connext. Production capture only
+accepts the bank account title; test capture only accepts the test bot title.
+
+Put `LINE_TEST_CHANNEL_ACCESS_TOKEN` and your own `LINE_TEST_USER_ID` in ignored
+`.env.line-test.local`. Never commit them. The sender verifies the bot basic ID
+and display name, checks remaining limited quota, then sends 50 numbered messages
+only to the configured recipient; it does not broadcast. Existing unrelated OAs
+are not modified. Stop if the recipient has not added this bot as a friend.
+
+Start `scripts/line-test-capture.ps1 -RunId <run>` using Windows PowerShell (hidden
+window for automated runs). Then run `pnpm exec tsx scripts/line-test-send.ts <run>`.
+Capture reports `.cache/line-test-<run>.json`; sender reports
+`.cache/line-send-<run>.json`. Compare accepted versus captured IDs. A successful
+send does not prove a toast was visible. Keep LINE minimized with test chat closed
+so Windows can emit notifications. Capture has no wallet/database/API access.
+
+At rollout, real LINE capture remains unverified until these reports exist and
+are compared. Local financial load results above do not certify the desktop
+notification delivery channel.
