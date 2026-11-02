@@ -36,13 +36,14 @@ while($true){
   foreach($item in $items){
    $id=[string]$item.Id+':'+$item.CreationTime.ToString()
    if($seen.Contains($id)){continue}
+   if(([DateTimeOffset]::UtcNow-$item.CreationTime).TotalSeconds -gt 180){[void]$seen.Add($id);continue}
    if($item.AppInfo.DisplayInfo.DisplayName -ne 'LINE'){[void]$seen.Add($id);continue}
    $binding=$item.Notification.Visual.GetBinding('ToastGeneric')
    if(-not $binding){[void]$seen.Add($id);continue}
    $texts=@($binding.GetTextElements() | ForEach-Object Text)
    if($texts.Count -lt 2 -or $texts[0] -cne 'Krungthai Connext'){[void]$seen.Add($id);continue}
    try{Send-Event (($texts|Select-Object -Skip 1) -join ' ') | Out-Null;[void]$seen.Add($id);Write-Output 'Connext event accepted.'}
-   catch{if($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409){[void]$seen.Add($id);Write-Output 'Connext event unmatched or expired; no credit.'}else{Write-Output 'Connext delivery failed; retry pending.'}}
+   catch{$status=0;if($_.Exception.Response){$status=[int]$_.Exception.Response.StatusCode};if($status -in @(400,409)){[void]$seen.Add($id);Write-Output ('Connext event rejected; no credit. HTTP='+$status)}else{Write-Output ('Connext delivery failed; retry pending. HTTP='+$status)}}
   }
  }catch{Write-Output 'Connext listener offline; retrying.'}
  Start-Sleep -Seconds 2

@@ -1,4 +1,16 @@
-# Deployment and service setup — 2026-11-01 (Asia/Bangkok)
+# Current readiness update — 2026-11-02 (Asia/Bangkok)
+
+This section supersedes the historical setup notes below.
+
+- Google registration, email OTP, member Wallet, Admin with independent TOTP MFA, staff/Admin POS and QR payment flows are deployed. User confirmed real Slip2Go and Connext topups.
+- Slip2Go validates provider response, recipient proxy/account, amount, time and unique bank reference. Connext is an experimental Windows notification bridge, not authenticated bank confirmation. Its local process must remain running with Windows-style LINE notifications enabled. No automatic start after reboot is installed.
+- Admin can switch the new-intent provider. Connext unique-cent reservations, signed bridge requests, offline detection, once-only ledger settlement and a 20-second Slip2Go fallback are deployed.
+- Read-only live reconciliation: 4 wallets, zero wallet/ledger mismatches; 5 paid topups all have TOPUP ledger records. These counts are a point-in-time check, not a bank-statement reconciliation. Some pending intents exist and no funds or historical records were modified by this check.
+- Added scripts/check-ledger.ts for repeatable read-only checking. This checks the local ledger against stored balances, not actual bank balances.
+- Hardened local agent: discard non-transaction/invalid notifications (HTTP 400), unmatched events (409), and notifications older than 3 minutes rather than retrying them indefinitely. Old notifications are skipped after restart. Pending delivery remains memory-only and needs staff reconciliation after process failure.
+- Still unverified/incomplete: backup/PITR entitlement and actual restore drill; operational alerts and bank-statement reconciliation; isolated preview database; RFID device integration and testing; durable agent delivery/restart recovery. Do not call the full master prompt or unattended production operations complete.
+
+# Historical deployment and service setup — 2026-11-01 (Asia/Bangkok)
 
 ## Completed
 
